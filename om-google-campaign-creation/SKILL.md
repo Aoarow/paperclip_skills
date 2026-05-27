@@ -1,5 +1,5 @@
 ---
-name: google-ads-campaign-creation
+name: om-google-campaign-creation
 description: Create Google Ads campaigns, ad groups, ads, and asset groups end-to-end via the Google Ads API. Covers all five active campaign types (Search, Performance Max, Demand Gen, Shopping, Video) including budget setup, bidding strategies, targeting, RSA construction, Performance Max asset groups, and Demand Gen creatives. Use this skill whenever the agent is asked to build, launch, set up, draft, or assemble anything in Google Ads — even when the request is phrased loosely ("get a new campaign live for Bimmerle", "spin up search ads for the spring offer", "we need a PMax for the new product line"). All new structures are created in `PAUSED` status and handed back to a human for activation in the Google Ads UI; never enable a campaign autonomously.
 ---
 
