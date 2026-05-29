@@ -11,7 +11,7 @@ proves reliable and experience accumulates. The level for each property is set i
 agent reads its level from `client.md` and applies the matching section below.
 
 Principle: agents propose, humans dispose. **No level** ever permits raising the
-property's total budget, enabling/pausing/deleting structures that are human decisions,
+property's total monthly budget (`budget.csv`), enabling/pausing/deleting structures that are human decisions,
 or acting without a documented reason.
 
 ## Levels
@@ -24,21 +24,25 @@ The starting level for a new or unproven property. No live changes.
 
 ### Standard
 The everyday level once a property runs reliably.
-- Bid changes up to **±20 %** per campaign.
+- Manual bid changes (`MANUAL_CPC` campaigns) up to **±20 %** per campaign.
 - Keyword adjustments (negative keywords, new long-tail keywords).
 - Asset adjustments (new ad variations within the documented strategy).
-- Budget reallocation between campaigns up to **15 %** of the daily budget.
+- Budget reallocation between campaigns up to **15 %** of the property's total budget (the total itself is unchanged).
+
+(Note: under smart bidding there are no manual bids — the equivalent lever is the
+smart-bidding *target*, which is an *Extended*-level action. A Standard property on smart
+bidding therefore optimizes via keywords, negatives, assets, and budget reallocation.)
 
 ### Extended
 For proven properties with a solid track record.
-- Bid changes up to **±35 %** per campaign.
+- Manual bid changes (`MANUAL_CPC` campaigns) up to **±35 %** per campaign.
 - Keyword and asset adjustments as in Standard.
-- Budget reallocation between campaigns up to **30 %** of the daily budget.
+- Budget reallocation between campaigns up to **30 %** of the property's total budget (the total itself is unchanged).
 - Adjusting smart-bidding targets (tCPA / tROAS) within **±15 %** of the current target.
 
 ## Always escalate (every level)
 Regardless of level, escalate these to the department head:
-- Raising the property's total daily budget.
+- Raising the property's total monthly budget (`budget.csv`).
 - Pausing a top-performer campaign.
 - A campaign with no impressions for three days or more.
 - Any change that would exceed the active level's ceilings.

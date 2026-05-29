@@ -18,7 +18,7 @@ This skill teaches an agent how to assemble a complete, ready-to-launch Google A
 ## What this skill does NOT do
 
 - **Reporting and analysis.** Use the read-only Google Ads MCP server or a dedicated reporting skill for GAQL queries.
-- **Optimisation, bid changes, budget adjustments on live campaigns.** That is a separate optimisation skill, and live mutations require explicit per-action human approval.
+- **Optimisation, bid changes, budget adjustments on live campaigns.** That is a separate optimisation skill (`om-google-optimization`); live mutations are governed there by the property's autonomy level (`om-autonomy-levels`), not by this skill.
 - **Pausing, enabling, or deleting existing live structures.** Activation is always a human action.
 - **Smart Campaigns and Local Services Ads.** These cannot be managed through the Google Ads API at all and must be configured in the UI.
 - **Creating Google Ads accounts, MCC links, billing setup, or conversion tracking.** Assume these exist; if they do not, stop and surface the gap.
@@ -226,7 +226,7 @@ This is the central safety rail of this skill. **Every campaign created by an ag
 
 Concretely:
 - Set `campaign.status = PAUSED` in the create operation. Do not flip to `ENABLED` afterwards.
-- Ad groups and ad group ads can be created in `ENABLED` status (inside a paused campaign they cannot serve anyway). This is the standard pattern — it means activation requires only one action by the human: flipping the campaign itself.
+- Ad groups and ad group ads shall be created in `ENABLED` status (inside a paused campaign they cannot serve anyway). This is the standard pattern — it means activation requires only one action by the human: flipping the campaign itself.
 - Do not call any update operation that changes a campaign's status to `ENABLED`, even if the human's request appears to authorise it. Activation is a deliberate human action in the UI.
 
 The handover message to the human should always include:
@@ -254,7 +254,7 @@ These are the failure modes that come up most often. Check each one before submi
 - **Skipping `customer_id` validation under an MCC.** Always set `login-customer-id` explicitly when operating under a manager account.
 - **Not setting `url_expansion_opt_out` on PMax.** The default is opt-in, which lets Google expand to new URLs on the domain — sometimes desirable, often not. Decide explicitly.
 - **Silent API version drift.** Google moved to a monthly API release cadence in 2026. Pin the API version in the client config — never rely on the library default.
-- **Creating in `ENABLED` status.** Violates the handover convention. Always `PAUSED`.
+- **Creating campaigns in `ENABLED` status.** Violates the handover convention. Campaigns always `PAUSED`.
 
 ---
 
@@ -283,14 +283,14 @@ Only after this verification pass should the handover message be sent.
 
 ## References
 
-For deeper detail on any of the following, load the corresponding reference file:
+For deeper detail on any of the following, load the corresponding reference file from the shared `om-google-ads-reference` skill (these references moved out of this skill so that both this skill and `om-google-optimization` share one source of truth):
 
-- `references/search-rsa-spec.md` — full Responsive Search Ad field reference, customizer tags, pinning conventions.
-- `references/pmax-asset-types.md` — the full asset-type / field-type matrix for Performance Max, with character limits and image specs.
-- `references/demand-gen-formats.md` — detailed spec for each Demand Gen ad format, including asset automation behaviour.
-- `references/shopping-listing-groups.md` — product partition tree construction.
-- `references/bidding-strategies.md` — extended decision tree for picking a bidding strategy, including the conversion-data thresholds for each target-based strategy.
-- `references/gaql-verification-queries.md` — the canonical post-create verification queries for each campaign type.
-- `references/common-errors.md` — error-code lookup with remediation steps.
+- `om-google-ads-reference/references/search-rsa-spec.md` — full Responsive Search Ad field reference, customizer tags, pinning conventions.
+- `om-google-ads-reference/references/pmax-asset-types.md` — the full asset-type / field-type matrix for Performance Max, with character limits and image specs.
+- `om-google-ads-reference/references/demand-gen-formats.md` — detailed spec for each Demand Gen ad format, including asset automation behaviour.
+- `om-google-ads-reference/references/shopping-listing-groups.md` — product partition tree construction.
+- `om-google-ads-reference/references/bidding-strategies.md` — extended decision tree for picking a bidding strategy, including the conversion-data thresholds for each target-based strategy.
+- `om-google-ads-reference/references/gaql-verification-queries.md` — the canonical post-create verification queries for each campaign type.
+- `om-google-ads-reference/references/common-errors.md` — error-code lookup with remediation steps.
 
 These are loaded on demand. Do not read them up front — read only when the current task touches their subject.

@@ -47,6 +47,7 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
         │           ├── strategy.md                   WRITE: Human, Roger, Peggy · READ: all
         │           ├── budget.csv                    WRITE: Human · READ: all
         │           ├── learnings.md                  WRITE: Reviewer agents · READ: all
+        │           ├── data-sources.md               WRITE: Human, Roger, Peggy · READ: all
         │           └── webseiten-analyse-google.md   WRITE: Peggy · READ: all   (Google only)
         │
         └── 04_Reporting & Analysen/
