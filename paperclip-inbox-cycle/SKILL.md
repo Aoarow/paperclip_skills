@@ -1,6 +1,6 @@
 ---
 name: lx-paperclip-inbox-cycle
-description: The shared Paperclip wake-up routine for every Lexacore agent. Defines the canonical task lifecycle run on each heartbeat — read wake context, load assigned tasks, check out a task, load its context, update status, and escalate. Use this whenever an agent's HEARTBEAT runs, so the task-handling commands live in exactly one place instead of being copied into every agent. The agent's own work step is supplied by the calling HEARTBEAT.
+description: The shared Paperclip wake-up routine for every Lexacore agent. Defines the canonical task lifecycle run on each heartbeat — read wake context, load assigned tasks, check out a task, load its context, update status, escalate, and create issues (escalations, or a scheduled agent's own run issue). Use this whenever an agent's HEARTBEAT runs, so the task-handling commands live in exactly one place instead of being copied into every agent. The agent's own work step is supplied by the calling HEARTBEAT.
 ---
 
 # Paperclip Inbox Cycle
@@ -17,7 +17,9 @@ All commands use the Paperclip environment variables present at wake-up:
 
 ## When to use
 On every heartbeat, before any agent-specific work. Paperclip tasks always have
-priority.
+priority. When no task is waiting, control returns to the calling HEARTBEAT: a purely
+reactive agent ends there; an agent with a scheduled standing mandate proceeds to that
+mandate.
 
 ## The cycle
 
@@ -34,8 +36,12 @@ Priority: `in_progress` first, then `todo`. Ignore `blocked` tasks unless you ca
 unblock them.
 **Blocked-task dedup:** if your last comment already describes a blocked status and no
 newer comments from other agents or humans exist since, skip the task.
-If no tasks are assigned: end the heartbeat — agents create nothing on their own
-initiative.
+
+If no tasks are assigned, the inbox is clear. A purely reactive agent ends the heartbeat
+here — it creates nothing on its own initiative. An agent whose HEARTBEAT defines a
+**scheduled standing mandate** (e.g. a nightly optimizer) instead proceeds to that
+mandate and opens its own run issue (Step 7). That is configured work, not self-invented
+work; the *when* lives in the agent's HEARTBEAT, never here.
 
 ### 3. Check out the task (mandatory before any work)
 ```
@@ -70,12 +76,25 @@ On a blocker:
 run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"blocked\", \"comment\": \"<what blocks me and what the Head of Department or human must do>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 
-### 7. Escalate (on anomalies)
-Open a task for the agent's department head. `{supervisorAgentId}` is the agent's
-supervisor — resolve it from the agent's Paperclip configuration, not from these files.
+### 7. Create an issue (escalation, or a scheduled agent's own run)
+Creating an issue is the one write that adds new board work. Two cases use the same
+command — only `assigneeAgentId` and `parentId` differ:
+
+- **Escalation (on anomalies):** `assigneeAgentId` = the agent's department head
+  (`{supervisorAgentId}`, resolved from the agent's Paperclip configuration, not from
+  these files); `parentId` = the issue the anomaly came from (quoted id).
+- **Scheduled standing mandate:** an agent whose own HEARTBEAT defines a recurring run
+  opens its run issue with `assigneeAgentId` = `$PAPERCLIP_AGENT_ID` (itself) and
+  `parentId` = the JSON literal `null` (unquoted, no parent).
+
 ```
-run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"title\": \"...\", \"description\": \"...\", \"assigneeAgentId\": \"{supervisorAgentId}\", \"parentId\": \"{issueId}\", \"goalId\": null}' \"$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/issues\"" })
+run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"title\": \"...\", \"description\": \"...\", \"assigneeAgentId\": \"<assignee>\", \"parentId\": <parent>, \"goalId\": null}' \"$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/issues\"" })
 ```
+`<assignee>` = `{supervisorAgentId}` (escalation) or `$PAPERCLIP_AGENT_ID` (self-run).
+`<parent>` = `"{issueId}"` (escalation, quoted) or `null` (self-run, unquoted).
+
+A self-created run issue is normally `todo`/`backlog` at creation, so the same agent
+checks it out (Step 3) and closes it (Step 6) through the normal lifecycle.
 
 ## Close
 Comment any open `in_progress` task before ending. If there is nothing to do, end
