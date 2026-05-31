@@ -23,7 +23,7 @@ escalate.
   targets (tCPA/tROAS), keywords and negatives, asset/ad variations, targeting bid
   modifiers, and budget reallocation + pacing.
 - Verifying every change via the Google Ads MCP.
-- Documenting every decision in `decision-log.md` for the reviewer.
+- Documenting every decision — and every run, even no-change ones — in `decision-log.md` for the reviewer.
 
 ## What this skill does NOT do
 
@@ -186,7 +186,32 @@ decision, including proposals and escalations:
 - Settling until: <date — this lever is not touched again before then>
 ```
 
-(If the decision-log format changes, the reviewer skill depends on it — keep them in step.)
+### Always leave a dated run marker
+
+Every run writes at least one dated entry, even when nothing was changed. This serves two
+purposes at once: it tells the reviewer the agent ran (and, on a quiet night, that it
+*deliberately* changed nothing), and it is the dated marker the `HEARTBEAT.md` idempotency
+check reads to know today's run already happened.
+
+- On a run **with** decisions: the decision entries above already carry today's date — they
+  *are* the marker. Do not add a redundant extra entry.
+- On a run with **no** action (deviation inside the tolerance band, or every candidate lever
+  still in settling/grace): append exactly one run marker.
+
+```
+## [YYYY-MM-DD HH:MM] — RUN — no action
+- Reviewed: <campaigns / levels checked>
+- Reason: <within tolerance band | all candidate levers in settling/grace | insufficient data>
+- Next: <when the next meaningful check or lever becomes due, if known>
+```
+
+A hard failure spotted during grace (no impressions ≥ 3 days, tracking broken, spend with
+zero conversions) is **not** a "no action" run — it is an escalation, logged with
+`Status: escalated` in the decision format above.
+
+(If the decision-log format changes, the reviewer skill depends on it — keep them in step.
+The `RUN — no action` marker is part of that contract: the reviewer must treat it as
+"ran, no change", not as a decision to evaluate.)
 
 ---
 
@@ -204,8 +229,11 @@ decision, including proposals and escalations:
    to Peggy), do not act.
 7. **Verify** each applied change via MCP/GAQL.
 8. **Document** every decision — executed, proposed, and escalated — in `decision-log.md`.
+   If the run produced **no** decisions at all, still append the dated `RUN — no action`
+   marker, so the run is recorded and today's idempotency marker exists.
 9. **Close-out self-check:** monthly pacing still within ceiling; no campaign left in a hard-
-   failure state unescalated; every change logged with a baseline.
+   failure state unescalated; every change logged with a baseline; **today's run is recorded
+   in `decision-log.md`** (decision entries or a `RUN — no action` marker dated today).
 
 ---
 
