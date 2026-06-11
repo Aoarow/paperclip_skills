@@ -36,14 +36,15 @@ Folder-ID: 0APpEXGtLsCwkUk9PVA
 * strategy.md
 * budget.csv
 * learnings.md (nur leere Datei erstellen, nicht Issue erstellen)
+* decision-log.md (nur leere Datei erstellen, nicht Issue erstellen)
 
 **Reporting**
 
 ```
-01_Kunden & Projekte/01_Kunden/[Kunde]/04_Reporting & Analysen/Google/[property]/
+01_Kunden & Projekte/01_Kunden/[Kunde]/04_Reporting & Analysen/01_Google Ads/[property]/
 ```
 
-* decision-log.md
+* (beim Setup nur den leeren Property-Ordner anlegen; die Detailreports `[YYYY-MM].md` entstehen hier später durch Peggy beim Reporting. Die `decision-log.md` liegt jetzt unter `02_Projektdurchführung & Assets`.)
 
 ## Agenten
 

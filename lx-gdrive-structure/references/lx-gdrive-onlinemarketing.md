@@ -48,7 +48,8 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
         │           ├── budget.csv                    WRITE: Human · READ: all
         │           ├── learnings.md                  WRITE: Reviewer agents · READ: all
         │           ├── data-sources.md               WRITE: Human, Roger, Peggy · READ: all
-        │           └── webseiten-analyse-google.md   WRITE: Peggy · READ: all   (Google only)
+        │           ├── webseiten-analyse-google.md   WRITE: Peggy · READ: all   (Google only)
+        │           └── decision-log.md               WRITE: Optimizer agents · READ: all
         │
         └── 04_Reporting & Analysen/
             ├── 01_Monatsreport/
@@ -56,7 +57,7 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
             │   └── dashboard-[YYYY-MM]-[channel].html WRITE: Peggy · READ: all
             └── [Channel]/
                 └── [property]/
-                    └── decision-log.md               WRITE: Optimizer agents · READ: all
+                    └── [YYYY-MM].md                  WRITE: Peggy · READ: all   (property detail reports)
 ```
 
 ## 4. Read/write rule
