@@ -9,12 +9,33 @@ Every Lexacore agent runs this same task lifecycle on each heartbeat. Only the
 "do the work" step differs per agent; everything around it is identical and lives here.
 HEARTBEAT files reference this skill instead of repeating the commands.
 
-In Paperclip, an issue's **disposition is its status** — there is no separate field. A
-run is only complete once it has set the issue to a status that names a clear next step.
-The valid statuses are `backlog`, `todo`, `in_progress`, `in_review`, `done`,
-`cancelled`, `blocked`. A run that finishes without choosing one is flagged as a missing
-disposition and the issue is parked until a human resolves it — so every path in Step 6
-ends by setting a status explicitly.
+In Paperclip, an issue's **disposition is its status** — there is no separate field. The
+disposition is set by a `PATCH /api/issues/{id}` that changes `status`. A **comment is
+context, never a disposition**, and the PATCH body has **no `comment` field** — so a
+status change and a comment are always **two separate calls** (post the comment to
+`/comments`, then PATCH the status). The valid statuses are `backlog`, `todo`,
+`in_progress`, `in_review`, `done`, `cancelled`, `blocked`.
+
+**Why this matters (the failure this skill prevents).** When a run ends, Paperclip's
+liveness check looks at every issue the run had checked out. If such an issue is left
+`in_progress`, assigned to the same agent, with **no active delegated child** — or if the
+run only commented without changing the status — Paperclip raises a *stale-disposition
+warning*, fails auto-recovery, and reassigns the issue to a **recovery owner (the
+supervisor)**. That is exactly why a supervisor keeps getting pulled into routine runs.
+So **every path in Step 6 ends by setting a terminal or handoff status explicitly** — a
+comment alone is never enough.
+
+**The `in_progress` trap.** `in_progress` is a valid *end-of-run* state in **one** case
+only: delegate-down (Step 6c), where you have just created a child issue that is now
+actively assigned to a subordinate, so the parent legitimately waits. In every other
+case, ending `in_progress` is read as a missing disposition. "I still need to keep
+monitoring" is **not** a reason to stay `in_progress` — see below.
+
+**A no-action run is still a completed run.** If today's pass needs no changes — or you
+are waiting out a settling / observation period — that is `done`, with a one-line
+"no action" comment. The continued monitoring is the **next** scheduled run's own dated
+issue; it is never a reason to keep today's issue open. `blocked` is likewise never a
+close-out (see rule 1 below).
 
 All commands use the Paperclip environment variables present at wake-up:
 `$PAPERCLIP_API_KEY`, `$PAPERCLIP_API_URL`, `$PAPERCLIP_AGENT_ID`, `$PAPERCLIP_RUN_ID`,
@@ -87,40 +108,53 @@ Perform the agent-specific work defined in the calling HEARTBEAT. This skill doe
 define what the work is.
 
 ### 6. Close the issue with a disposition (mandatory)
-Every checked-out issue ends here, with exactly one of the outcomes below. Each sets a
-status (the disposition) plus a short, structured comment — never a pasted transcript.
-Never end a run with the issue left unattended, with no status set, or `blocked`.
+Every checked-out issue ends this run with exactly one of the outcomes below. Each is
+**two calls**: first an optional context comment, then the status PATCH that *is* the
+disposition. The status PATCH is the last act of the run, so the issue ends with a clean
+disposition. Never end a run with the issue left unattended, with only a comment and no
+status change, left `in_progress` without an active delegated child, or `blocked`.
 
-**a) Done — the work is finished.**
+**6.1 — record the context (recommended).** Post one short, structured comment. The body
+field is `body`; this is a separate endpoint from the status PATCH.
 ```
-run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"done\", \"comment\": \"<short result summary>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
+run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"body\": \"<short result or handoff summary>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}/comments\"" })
+```
+
+**6.2 — set the disposition (mandatory).** Exactly one of:
+
+**a) Done — the work is finished, including a no-change or settling-period pass.**
+```
+run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"done\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 
 **b) Escalate up — beyond my autonomy, or a blocker I cannot resolve (including infra/access problems).**
 Reassign the issue to my supervisor and set it back to `todo`, so it lands actionable in
-their inbox. The comment states the concrete decision or action I need — not a narrative.
-This replaces blocking: I never set `blocked` to push a problem upward.
+their inbox. The 6.1 comment states the concrete decision or action I need — not a
+narrative. This replaces blocking: I never set `blocked` to push a problem upward.
 ```
-run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"todo\", \"assigneeAgentId\": \"{supervisorAgentId}\", \"comment\": \"<the concrete decision or action I need from my supervisor>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
+run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"todo\", \"assigneeAgentId\": \"{supervisorAgentId}\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 If I am at the top of the chain (no supervisor configured), I escalate to the human
 owner per Paperclip configuration instead of to a `{supervisorAgentId}`.
 
 **c) Delegate down — I have decided and a subordinate should execute.** (Supervisors only.)
 Create a sub-issue for the chosen subordinate (Step 7), then set *this* issue to
-`in_progress` so it stays mine and actionable while the sub-issue runs. When the
-sub-issue is resolved and I have reviewed the result, I close this issue `done` (outcome a).
+`in_progress` so it stays mine while the sub-issue runs. This is the **only** valid
+`in_progress` end-of-run state, because a child is now actively assigned downward. When
+the sub-issue is resolved and I have reviewed the result, I close this issue `done`
+(outcome a).
 ```
-run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"in_progress\", \"comment\": \"<what I delegated, to whom, and the sub-issue id; I will review and close>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
+run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"in_progress\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 
 **d) Cancel — the work has become moot.**
 ```
-run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"cancelled\", \"comment\": \"<why this is no longer needed>\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
+run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"cancelled\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 
 The remaining statuses (`backlog`, `in_review`) are not part of the standard agent
-close-out; use them only if a specific workflow introduces them.
+close-out; use them only if a specific workflow introduces them. `blocked` is never an
+agent close-out (rule 1).
 
 ### 7. Create an issue (delegate down, or a scheduled agent's own run)
 Creating an issue is the one write that adds new board work. Two cases use the same
