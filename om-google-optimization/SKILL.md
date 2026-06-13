@@ -37,6 +37,15 @@ escalate.
 
 If a request or a finding falls into the above, stop and escalate with a clear note.
 
+**How to escalate — this is a Paperclip action, not a sentence in the log.** Escalating
+means handing the **run issue** up the chain exactly as `lx-paperclip-inbox-cycle` Step 6b
+defines it: reassign the issue to my supervisor (`{supervisorAgentId}` — Peggy) **and** set
+its status to `todo`, with a short comment naming the concrete decision or fix I need. That
+reassignment **is** the escalation. Writing `Status: escalated` in `decision-log.md` only
+*records* it — it never stands in for the reassignment. I **never** set an issue to `blocked`
+to push a problem upward, and I never treat a log entry or a comment as the handoff: an
+escalation that did not reassign an issue to Peggy did not happen.
+
 ---
 
 ## Inputs — read these before doing anything
@@ -54,9 +63,15 @@ do not optimize — escalate (operational failures are handled in `HEARTBEAT.md`
 | `decision-log.md` | The agent's **own prior decisions** — what was last changed and when (settling) | READ + WRITE |
 | `KI-Wissen/Google` | Current best practice / new features (optional, judgment-informing) | READ |
 
-Pre-flight: the account is reachable; BigQuery has data for the property; **conversion
-tracking is firing** (if it is broken, smart bidding is blind — do not optimize on it,
-escalate). Resolve `customer_id` (and `login-customer-id` under an MCC) from `data-sources.md`.
+Pre-flight: the account is reachable; BigQuery has data for the property; **the conversion
+action is healthy** — Google Ads shows it as recording or merely "no recent conversions",
+the tag is detected, and the status is not *Inactive / Unverified / no tag detected*.
+**Zero conversions is not, by itself, a tracking failure** — at low click volume (see the
+sample floor under *Settling / grace*) zero conversions is the expected outcome on a small
+pilot, not a broken tag. Treat tracking as *broken* only on an **explicit signal** (the
+conversion action is Inactive/Unverified, or the tag is not detected/firing); only then is
+smart bidding blind — do not optimize on it, and escalate. Resolve `customer_id` (and
+`login-customer-id` under an MCC) from `data-sources.md`.
 
 ---
 
@@ -108,9 +123,13 @@ score = Σ (wᵢ × rateᵢ)   over buckets i that pass the significance floor
 - **After *any* material change** — including the agent's own (target/strategy switch, large
   budget move) — let the lever settle before touching it again; a material change restarts
   the learning phase. Read `decision-log.md` to know when each lever was last changed.
-- **Grace = "don't tune", not "don't look".** Hard failures (e.g. no impressions ≥ 3 days,
-  tracking broken, spend with zero conversions) are still observed and **escalated** during
-  the grace period — they are not optimizations.
+- **Grace = "don't tune", not "don't look".** Hard failures are still observed and
+  **escalated** (reassign up, per the escalation rule above) during the grace period — they
+  are not optimizations. A hard failure is: no impressions ≥ 3 days; conversion tracking
+  broken **on an explicit signal** (not merely zero conversions); or meaningful spend with
+  **zero conversions despite a sufficient click sample** (a floor — e.g. ≥ 30–50 clicks in
+  the window). **Below that click floor, zero conversions is statistical noise on a small
+  pilot, not a failure** — it is a normal `RUN — no action`, never an escalation.
 
 ---
 
@@ -205,9 +224,12 @@ check reads to know today's run already happened.
 - Next: <when the next meaningful check or lever becomes due, if known>
 ```
 
-A hard failure spotted during grace (no impressions ≥ 3 days, tracking broken, spend with
-zero conversions) is **not** a "no action" run — it is an escalation, logged with
-`Status: escalated` in the decision format above.
+A hard failure spotted during grace (no impressions ≥ 3 days; conversion tracking broken on
+an explicit signal; or meaningful spend with zero conversions despite a sufficient click
+sample, e.g. ≥ 30–50 clicks) is **not** a "no action" run — it is an escalation: reassign
+the run issue up per `lx-paperclip-inbox-cycle` Step 6b **and** log it with
+`Status: escalated` in the decision format above. Zero conversions at low click volume is a
+normal `RUN — no action`, not an escalation.
 
 (If the decision-log format changes, the reviewer skill depends on it — keep them in step.
 The `RUN — no action` marker is part of that contract: the reviewer must treat it as
@@ -225,8 +247,9 @@ The `RUN — no action` marker is part of that contract: the reviewer must treat
    the tolerance band.
 5. **Drop anything in settling/grace** from the action candidates (but escalate hard failures).
 6. **For each candidate action:** check `om-autonomy-levels`. Within ceiling → apply via MCP.
-   Beyond ceiling, durable plan change, or unclear justification → escalate (Paperclip task
-   to Peggy), do not act.
+   Beyond ceiling, durable plan change, or unclear justification → **escalate** (reassign the
+   run issue to Peggy + `todo`, per `lx-paperclip-inbox-cycle` Step 6b — *not* a new child
+   issue to her, and never `blocked`), do not act.
 7. **Verify** each applied change via MCP/GAQL.
 8. **Document** every decision — executed, proposed, and escalated — in `decision-log.md`.
    If the run produced **no** decisions at all, still append the dated `RUN — no action`
