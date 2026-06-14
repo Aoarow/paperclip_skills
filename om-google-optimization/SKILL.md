@@ -191,8 +191,18 @@ stop → escalate (do not retry, do not invent a workaround).
 
 `decision-log.md` is **the contract between this skill (writer) and the reviewer (reader)**.
 The reviewer reads it weekly and judges the 14-day impact, so every entry must carry the
-**baseline** — without pre-change values there is no before/after. Append one entry per
-decision, including proposals and escalations:
+**baseline** — without pre-change values there is no before/after.
+
+**Writing the log is a read-modify-write — `gdrive_write_file` OVERWRITES the entire file
+(there is no append tool).** To add an entry without destroying the reviewer's history:
+(1) `gdrive_read_file` the current `decision-log.md` in full; (2) build the new content as
+your entry **prepended above the complete existing text**; (3) `gdrive_write_file` the
+**entire** combined document (your new entry **plus every prior entry**). **Never** call
+`gdrive_write_file` with only your new entry — that erases every past decision (this is
+exactly how a nightly run once wiped the whole log). After writing, re-read the file and
+confirm your new entry **and** the older entries are all still present.
+
+Append one entry per decision, including proposals and escalations:
 
 ```
 ## [YYYY-MM-DD HH:MM] — <campaign / ad group / keyword> — <lever>
@@ -251,12 +261,15 @@ The `RUN — no action` marker is part of that contract: the reviewer must treat
    run issue to Peggy + `todo`, per `lx-paperclip-inbox-cycle` Step 6b — *not* a new child
    issue to her, and never `blocked`), do not act.
 7. **Verify** each applied change via MCP/GAQL.
-8. **Document** every decision — executed, proposed, and escalated — in `decision-log.md`.
-   If the run produced **no** decisions at all, still append the dated `RUN — no action`
-   marker, so the run is recorded and today's idempotency marker exists.
+8. **Document** every decision — executed, proposed, and escalated — in `decision-log.md`,
+   always **read-modify-write** (read the full file, prepend your entry, write the whole
+   document back — `gdrive_write_file` overwrites; there is no append). If the run produced
+   **no** decisions at all, still append the dated `RUN — no action` marker, so the run is
+   recorded and today's idempotency marker exists.
 9. **Close-out self-check:** monthly pacing still within ceiling; no campaign left in a hard-
    failure state unescalated; every change logged with a baseline; **today's run is recorded
-   in `decision-log.md`** (decision entries or a `RUN — no action` marker dated today).
+   in `decision-log.md`** (decision entries or a `RUN — no action` marker dated today) **and
+   the prior entries are still present** (you prepended, you did not overwrite the history).
 
 ---
 
