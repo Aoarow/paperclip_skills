@@ -63,3 +63,5 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
 ## 4. Read/write rule
 
 The WRITE/READ annotations above are binding. Never write to a document you only have read access to. `client.md` and `budget.csv` are human-owned – agents read them, but never change them.
+
+**Adding to a file: use `gdrive_append_file`.** To add an entry to any accumulating document (e.g. `decision-log.md`, `learnings.md`), use `gdrive_append_file` (`position: "start"` to prepend / `"end"` to append) — it preserves the existing content server-side, so you pass only your new fragment. **Do not** use `gdrive_write_file` to add an entry: it **overwrites the entire file**, so passing only your fragment destroys everything already there. Editing existing text in place is a strict read-modify-write: `gdrive_read_file` the full file → make the change in memory → `gdrive_write_file` the **complete** document back → re-read and confirm the prior content survived. This protects the history that accumulating logs depend on.
