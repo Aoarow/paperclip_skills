@@ -16,6 +16,8 @@ or acting without a documented reason.
 
 ## Levels
 
+The three levels are **department-wide**. The lever percentages in this first block are the **Google lever map** (manual CPC, smart-bidding targets). The **Amazon lever map** — same three levels, Amazon-specific levers — is in its own section below.
+
 ### Observe
 The starting level for a new or unproven property. No live changes.
 - Allowed: analyze performance, document findings, propose changes as tasks to the
@@ -39,6 +41,30 @@ For proven properties with a solid track record.
 - Keyword and asset adjustments as in Standard.
 - Budget reallocation between campaigns up to **30 %** of the property's total budget (the total itself is unchanged).
 - Adjusting smart-bidding targets (tCPA / tROAS) within **±15 %** of the current target.
+
+## Amazon — lever map per level (DRAFT)
+
+> **DRAFT.** The bands below mirror the Google map as a sensible starting point; confirm them together with the **bidding-policy ruleset** (`om-amazon-optimization`, memo §12.5) and the **negative ruleset** (memo §12.6). Do not treat the numbers as final.
+
+On Amazon the daily Optimizer runs a **deterministic bidding engine** over all keywords/targets, and the LLM sets the **policy** (memo §7). Autonomy therefore gates two different things: the **size of a single engine-applied change**, and **who may change the policy itself**.
+
+### Observe (Amazon)
+No live changes. Analyze performance, document findings, propose changes as tasks. Everything that would mutate the account escalates.
+
+### Standard (Amazon)
+- **Bid changes** (per keyword/target, applied by the engine within policy): up to **±20 %** per item per run *(DRAFT)*.
+- **Keyword/target adds** from harvesting (positive Targeter) within the documented strategy.
+- **Negative adds** (waste negatives; graduation negatives) — the negation web.
+- **Budget reallocation between campaigns** within the property's total: up to **15 %** of the total *(DRAFT)* (the total itself is unchanged).
+- **Pausing individual poor keywords/targets** is allowed.
+
+### Extended (Amazon)
+- **Bid changes** up to **±35 %** per item per run *(DRAFT)*.
+- Keyword/target/negative adjustments as in Standard.
+- **Budget reallocation between campaigns** up to **30 %** of the total *(DRAFT)*.
+- **Adjusting the bidding policy / target-ACOS bands** (the engine's Research vs. Profit bands) within a bounded step *(DRAFT — the analogue of the Google smart-bidding target change; size TBD with the ruleset)*.
+
+**Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; any change beyond the active level's bands.
 
 ## Always escalate (every level)
 Regardless of level, escalate these to the department head:

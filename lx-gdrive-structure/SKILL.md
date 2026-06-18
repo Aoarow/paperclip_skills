@@ -28,6 +28,14 @@ Folder-ID: 0APpEXGtLsCwkUk9PVA
 
 *(Further departments – Sales, AI Consulting – will be added here as they are built.)*
 
+A department may have **channel-level** detail maps beneath it. For Online Marketing:
+
+| Channel | Detail map |
+| :------ | :--------- |
+| Amazon  | `lx-gdrive-amazon.md` |
+
+(Google Ads is currently covered within `lx-gdrive-onlinemarketing.md`; see its §3a channel table.)
+
 ## Navigation principle (applies to all departments)
 
 Two kinds of folders exist in this Drive:

@@ -60,6 +60,18 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
                     └── [YYYY-MM].md                  WRITE: Peggy · READ: all   (property detail reports)
 ```
 
+## 3a. Channel-specific maps
+
+The tree above is the shared shape. Channel-specific detail (the exact channel folder name, the channel's files, and their read/write rules) lives in a channel map:
+
+| Channel    | Channel folder   | Detail map               |
+| :--------- | :--------------- | :----------------------- |
+| Amazon     | `00_Amazon`      | `lx-gdrive-amazon.md`    |
+| Google Ads | `01_Google Ads`  | (covered in this file for now) |
+| Meta       | (tbd)            | (not yet)                |
+
+Before working in a client's `00_Amazon` folder, read `lx-gdrive-amazon.md`.
+
 ## 4. Read/write rule
 
 The WRITE/READ annotations above are binding. Never write to a document you only have read access to. `client.md` and `budget.csv` are human-owned – agents read them, but never change them.
