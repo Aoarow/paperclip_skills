@@ -1,6 +1,6 @@
 # Supabase Data Layer — `amazon_ads_raw` (and the `public` join targets)
 
-The **measured truth** for Amazon. Agents read performance from here, never from the Ads API directly (the Ads API is write-only for our agents). Project `Lexacore_de` (ref `dkasvozgzliglssmxdwn`, region `eu-central-1`). Ingestion: Airbyte daily (Amazon Ads API → `amazon_ads_raw`), cron `0 0 5 * * ? UTC`. See `project_amazon_paperclip/Airbyte.md` / `Supabase.md`.
+The **measured truth** for Amazon. Agents read performance from here, never from the Ads API directly (the Ads API is write-only for our agents). The Supabase project ID, region, and connection details are **not** in this skill — they live in the property's `data-sources.md` and the secret store. Ingestion: Airbyte daily (Amazon Ads API → `amazon_ads_raw`), cron `0 0 5 * * ? UTC`. See `project_amazon_paperclip/Airbyte.md` / `Supabase.md`.
 
 > Verified live on 2026-06-15 via the Supabase MCP. When the streams or schema change, regenerate this file from the live DB — do not hand-edit drift in.
 
