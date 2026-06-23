@@ -37,11 +37,15 @@ The channel-level map for **Amazon**, beneath the Online Marketing department (H
         │           ├── learnings.md                 WRITE: Reviewer agent · READ: all
         │           └── decision-log.md              WRITE: property agents (Optimizer, +Targeter, −Targeter) · READ: all
         │
-        └── 04_Reporting & Analysen/
-            └── [Amazon reporting folder]/[property]/[YYYY-MM].md   WRITE: Peggy / Account-Manager · READ: all
-                  ⚠️ Reporting channel-folder name TBD — Windspiel's client.md currently uses
-                  `02_Amazon` + a `99_Monatsreport` aggregate. Confirm and unify with the
-                  `00_Amazon` project-execution name (deferred — see TODO §D).
+        └── 04_Reporting & Analysen/                    ← human raw exports + agent report output
+            ├── 01_Absätze/                              sales CSV exports (Seller/Vendor, monthly) = TACOS source · WRITE: Human · READ: all
+            ├── 02_Werbung/01_Amazon/                    ad CSV exports (bootstrap, pre-Airbyte) · WRITE: Human · READ: all
+            │   └── [property]/[YYYY-MM].md              monthly roll-up report output · WRITE: Peggy / Account-Manager · READ: all
+            └── 00_Dashboards/                           HTML performance dashboards · WRITE: Peggy · READ: all
+                  Reporting taxonomy decided 2026-06-22: the existing Drive structure is the
+                  truth (no separate `02_Amazon` / `99_Monatsreport`). Sales + ad raw exports
+                  are human-maintained inputs; the agent monthly report is the `.md` output
+                  under `02_Werbung/01_Amazon/[property]/`.
 ```
 
 ## Knowledge base
