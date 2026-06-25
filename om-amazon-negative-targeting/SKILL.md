@@ -10,7 +10,7 @@ This skill teaches the **negative Targeter** agent how to stop budget leaking on
 - **Waste negatives (this skill):** irrelevant / non-converting / far-over-target terms and ASINs → add to negative lists so they stop being served.
 - **Graduation negatives (NOT this skill):** a proven winner promoted to Exact-Profit and negated in its discovery source — that is one logical action and lives in `om-amazon-positive-targeting`.
 
-> **Scaffold status — PENDING HUMAN INPUT.** The **waste-negative ruleset** — the thresholds that make a term/ASIN a waste candidate (e.g. clicks/spend with zero conversions; ACOS far over target with a sufficient sample), and the protections against over-negating (don't kill terms still in the settling window) — is part of the pending negative ruleset (architecture memo §12.6). Do not invent thresholds.
+> **Waste-negative ruleset DEFINED (2026-06-25).** Thresholds in *Waste detection* below. Calibrated to be **stricter than a bid-down** (negation is permanent): the zero-conversion click-floor is posture-specific (from each posture's measured CVR), backed by a money trigger. Starting values — expected to tighten with experience and once the Search Term report is ingested (AUT waste lives at the query level, which needs that report).
 
 ## What this skill covers
 - Reading search-term and target performance from Supabase (week window).
@@ -26,8 +26,21 @@ This skill teaches the **negative Targeter** agent how to stop budget leaking on
 ## Inputs
 `data-sources.md`, `client.md` (autonomy), `strategy.md` (targets), `learnings.md`, `decision-log.md` (own history), `KI-Wissen/Amazon`.
 
-## Waste detection — the core mechanic (draft)
-A search term/ASIN is a **waste candidate** when it spends without paying back: clicks/spend with zero conversions above a click floor, or ACOS far over the strategy's target with a sufficient sample. The exact thresholds are the **pending waste ruleset** — do not invent them. Two guards:
+## Waste detection — the core mechanic
+A search term/ASIN is a **waste candidate** when it spends without paying back. Negation is permanent, so the bar is **higher than a bid-down** (a marginal term is the Optimizer's job, not this skill's). Two triggers, either qualifies:
+
+**1. Zero-conversion click-floor (posture-specific).** A term with **0 orders** and clicks ≥ the floor — set so that "0 orders" is genuinely improbable for a real winner (≈ `ln(0.10)/ln(1−CVR)`, i.e. <10 % chance a true converter would still show zero). From the measured posture CVRs:
+
+| Posture | CVR | 0-order negation floor |
+| :-- | :-- | :-- |
+| MRK | 32 % | ≥ 6 clicks |
+| GEN | 12.5 % | ≥ 17 clicks |
+| WTB | 7.4 % | ≥ 30 clicks |
+| AUT | 5.3 % | query-level only — needs the Search Term report (a single AUT keyword rarely reaches the floor on pilot budget) |
+
+**2. Money trigger (fires below the click-floor too).** **0 orders AND spend ≥ 2 × the product's break-even CPA** (= price × target_ACOS; e.g. €30 product × 18 % = €5.40 → negate at ≈ €11 spent with nothing back).
+
+Two guards:
 - **Don't kill terms still in the settling window** (they haven't had a fair chance) — coordinate with the Optimizer's settling state via `decision-log.md`.
 - **Respect the on-remove invariant** (manifest §4): never orphan a negative that should later flow back into discovery; and don't negate a term the positive Targeter is about to graduate (check recent `PosTgt` log entries to avoid the two agents fighting).
 
@@ -50,4 +63,4 @@ Add waste negatives as **negative-exact** keywords and **negative product (ASIN)
 - `lx-paperclip-inbox-cycle` — close-out / escalation.
 
 ## Maintenance
-This skill owns the *waste-negative procedure*. Invariants live in the manifest; thresholds are the pending ruleset; API/schema in `om-amazon-ads-reference`. The reviewer reads this agent's `decision-log.md` too — keep the log format in step.
+This skill owns the *waste-negative procedure* and its thresholds (*Waste detection*). Invariants live in the manifest; per-property targets/prices feed the money trigger from `strategy.md` + the product catalog; API/schema in `om-amazon-ads-reference`. The reviewer reads this agent's `decision-log.md` too — keep the log format in step.

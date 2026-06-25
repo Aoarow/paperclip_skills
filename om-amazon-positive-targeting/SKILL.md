@@ -9,7 +9,7 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 
 **Why harvest + negate-in-source is one action:** graduating a term to Exact-Profit *and* negating it in its discovery source (AUT/Broad) is a single logical move (manifest §4 "graduation negatives"). That is why it sits here, not with the negative Targeter.
 
-> **Partial input (2026-06-25).** The **keyword-roster cap** (bounded ≤ 15 per Exact-Profit campaign, eviction scoring, the three exits) is **defined** — see *The keyword roster* below; and AUT's spend cap / graduation-yield framing comes from `strategy.md` + `om-amazon-optimization`. Still **PENDING HUMAN INPUT (G2):** the **graduation thresholds** (how many clicks/conversions / what ACOS qualifies a term to graduate) and the precise on-add/on-remove maintenance numbers (architecture memo §12.6). The manifest carries the *invariants*; those operational *thresholds* are not yet authored — do not invent them.
+> **Ruleset DEFINED (2026-06-25).** The **graduation threshold** (*Graduation* below), the **keyword-roster cap** (*The keyword roster*), and AUT's spend cap / graduation-yield framing (`strategy.md` + `om-amazon-optimization`) are all set. The manifest carries the negation *invariants*; the operational *numbers* now live here. **One data dependency remains** (not a threshold): the **Search Term report** is not yet ingested (monthly n8n workflow, brief §13) — until it exists, harvest only from what the keyword/target reports expose, not raw Auto search terms.
 
 ## What this skill covers
 - Reading the **Search Term report** and Auto/Broad-Research performance from Supabase.
@@ -29,8 +29,8 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 ## Inputs
 `data-sources.md` (profile, Supabase, Search Term workflow), `client.md` (autonomy), `strategy.md` (head-term ownership map, goals), `learnings.md`, `decision-log.md` (own history), `KI-Wissen/Amazon`.
 
-## Graduation — the core mechanic (draft)
-A search term/ASIN target **graduates** when it has proven it converts. The qualifying test (clicks/orders/ACOS over what window) is the **pending graduation threshold** — do not invent it. Once qualified, graduation is **one atomic move**:
+## Graduation — the core mechanic
+A search term/ASIN target **graduates** when it has proven it converts. **Qualifying test (2026-06-25):** over a **90-day look-back**, the term has **≥ 2 orders AND eff_ACOS ≤ 18 %** (the Profit target; use the optimizer's canonical weighted eff_ACOS). The 90-day window is deliberate — at pilot volume a winner needs time to accumulate two orders. A term below the bar stays in discovery; it is not forced up. Once qualified, graduation is **one atomic move**:
 1. **Add** the term as an **exact keyword** (or the ASIN as a product target) in the matching strategy's **Exact-Profit** campaign.
 2. **Negate-exact** the same term in its **discovery source** (the AUT or Broad-Research campaign it came from) — so it is served by exactly one campaign from now on.
 3. **Apply the on-add negation-maintenance invariant** (manifest §4): a new positive in MRK/WTB → negative-exact in GEN **and** AUT; a new positive in GEN → negative-exact in AUT.
