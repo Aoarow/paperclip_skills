@@ -9,7 +9,7 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 
 **Why harvest + negate-in-source is one action:** graduating a term to Exact-Profit *and* negating it in its discovery source (AUT/Broad) is a single logical move (manifest §4 "graduation negatives"). That is why it sits here, not with the negative Targeter.
 
-> **Scaffold status — PENDING HUMAN INPUT.** The **negative ruleset** — specifically the graduation thresholds (how many clicks/conversions / what ACOS qualifies a term to graduate) and the precise on-add/on-remove maintenance rules (architecture memo §12.6) — is not yet written. The manifest carries the *invariants*; the operational *thresholds* must be authored before this skill is filled. Do not invent them.
+> **Partial input (2026-06-25).** The **keyword-roster cap** (bounded ≤ 15 per Exact-Profit campaign, eviction scoring, the three exits) is **defined** — see *The keyword roster* below; and AUT's spend cap / graduation-yield framing comes from `strategy.md` + `om-amazon-optimization`. Still **PENDING HUMAN INPUT (G2):** the **graduation thresholds** (how many clicks/conversions / what ACOS qualifies a term to graduate) and the precise on-add/on-remove maintenance numbers (architecture memo §12.6). The manifest carries the *invariants*; those operational *thresholds* are not yet authored — do not invent them.
 
 ## What this skill covers
 - Reading the **Search Term report** and Auto/Broad-Research performance from Supabase.
@@ -17,6 +17,8 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 - **Graduation:** add the winner as an exact keyword / ASIN target in the matching strategy's Exact-Profit campaign, **and** add it as a negative-exact in its source campaign (the same move).
 - **Negation maintenance (on-add invariant, manifest §4):** a new positive in MRK/WTB → negative in GEN **and** AUT; a new positive in GEN → negative in AUT.
 - **Head-term ownership enforcement (manifest §5):** keep each head term positive only on its owning ASIN; set negative-exact on all sibling ASINs of the brand (GEN + AUT).
+- **Roster management:** hold each Exact-Profit campaign to its ≤ 15-keyword cap by swapping (not appending) — see *The keyword roster*.
+- **AUT yield:** AUT is judged on graduation output, not ACOS (spend cap in `strategy.md`); harvesting *from* AUT is the yield this skill produces.
 
 ## What this skill does NOT do
 - **Waste negatives** (irrelevant/non-converting terms) → `om-amazon-negative-targeting`.
@@ -34,6 +36,17 @@ A search term/ASIN target **graduates** when it has proven it converts. The qual
 3. **Apply the on-add negation-maintenance invariant** (manifest §4): a new positive in MRK/WTB → negative-exact in GEN **and** AUT; a new positive in GEN → negative-exact in AUT.
 
 Both halves of step 1–2 land together; a winner added without negating its source double-serves and dirties attribution.
+
+## The keyword roster (bounded per campaign)
+Each **Exact-Profit** campaign holds a **fixed roster of ≤ 15 keywords**. Fewer, data-rich keywords beat a long noisy tail — and on pilot budgets the cap is what lets each keyword accumulate enough clicks to clear the optimizer's significance gate. Adding is therefore a **swap, not an append**.
+
+- **Cap is per campaign type.** Exact-Profit: hard **≤ 15**. **Broad-Research:** a higher soft cap (≈ 30–40) — it is the discovery farm; capping it at 15 would choke the funnel. **AUT:** exempt (no keywords).
+- **Cap is a ceiling, not a quota.** Do not churn to stay at 15. A new keyword enters **only if it beats the current weakest AND the weakest is genuinely droppable.** If all 15 pull their weight, add nothing — or, for a hero (Prio-1) that has outgrown one campaign, **split into a second Exact-Profit campaign** (manifest §3/§8); never raise the cap.
+- **"Weakest" = worst spend-efficiency / biggest drag, NOT fewest sales.** A near-zero-cost long-tail that converts occasionally is cheap option value — protect it. The eviction target is the keyword that **spends meaningfully + runs over target ACOS + shows no recent conversions** (use the optimizer's canonical weighted eff_ACOS). Rank candidates by drag; evict the top.
+- **Three exits for an evicted keyword:**
+  1. **Delete** — pure waste, no value anywhere.
+  2. **Move to another ASIN** — it was on the wrong product; valid only on a relevance check, and it is really **head-term-ownership enforcement** (§5) when a sibling held a term the owner should carry.
+  3. **Demote Profit → Research** — a decayed ex-winner keeps gathering data at lower intent instead of dying. **Has a side effect:** the term was negated in its Research source on graduation (§4), so demotion must **remove that negative** in the Research campaign, or it will never serve there. The move is not free — it touches `om-amazon-negative-targeting`'s invariant; fix it in the same step.
 
 ## Head-term ownership enforcement (manifest §5)
 Re-assert the property's head-term map each run: each head term stays positive only on its **owning** ASIN and negative-exact on the brand's **sibling** ASINs (GEN + AUT). Read the map from `strategy.md` — **never flip ownership** (human decision). Cross-*property* head-term arbitration is the Account-Manager's, not this skill's.

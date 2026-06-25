@@ -11,7 +11,7 @@ The agent **proposes; humans dispose.** Anything beyond the autonomy ceiling is 
 
 **Ordering:** runs **after** successful nightly ingestion (Airbyte → Supabase). Stale data → wrong bid/budget moves → wasted spend.
 
-> **Scaffold status — PENDING HUMAN INPUT.** The **bidding-policy ruleset** (the deterministic bid rules: ACOS-over-target + sufficient clicks → lower bid, the Research vs. Profit target-ACOS bands, etc. — architecture memo §12.5) is not yet written by Alexander. This skill can be scaffolded but **the optimization logic must not be invented.** Author the ruleset, then encode it here (and/or as a small script the skill invokes).
+> **Bidding-policy ruleset — DEFINED (2026-06-25).** The deterministic bid rules live in *The bidding-policy ruleset* below. Property-specific numbers (target-ACOS bands, AUT spend cap) are read from `strategy.md`; the engine **mechanism** (gate, weighted ACOS, dynamic max-CPC, step bands, settling) is doctrine here. Defaults were calibrated from Windspiel's 8-month history; a second property reviews them against its own data before reuse.
 
 ## What this skill covers
 - Reading performance from **Supabase** (`amazon_ads_raw.*` / `public` views) at campaign / ad group / keyword / target / search-term level.
@@ -43,14 +43,41 @@ The agent **proposes; humans dispose.** Anything beyond the autonomy ceiling is 
 When reallocating budget across campaigns within the property total, **weight by the product's priority** (Prio 1 largest share, 2 normal, 3 smallest — manifest §8), within the autonomy band.
 
 ## The engine / policy split (the core mechanic)
-- **Deterministic engine (code/ruleset):** applies the per-keyword/target bid arithmetic across *all* items every run — "ACOS over target + enough clicks → lower bid", Research band vs. Profit band per the R/P tag (manifest §3). Scales to thousands of items for ~nothing. **The exact rules are the pending bidding ruleset** — until written, the engine is scaffolded, not run.
+- **Deterministic engine (code/ruleset):** applies the per-keyword/target bid arithmetic across *all* items every run — "ACOS over target + enough clicks → lower bid", Research band vs. Profit band per the R/P tag (manifest §3). Scales to thousands of items for ~nothing. **The exact rules are in *The bidding-policy ruleset* below.**
 - **LLM policy layer:** reads **campaign-level aggregates** (dozens of summaries, not thousands of rows), sets/justifies the policy, handles anomalies/exceptions, and decides what to escalate. It does **not** price individual keywords.
 - **Autonomy gates two things:** the size of a single engine-applied bid change, and whether the LLM may change the policy/target-ACOS bands (`om-autonomy-levels`, Amazon map — Extended only for band changes).
 
-## Settling / anti-thrash (draft)
-- **New campaigns / new structures:** hands-off until both time **and** minimum volume are met — a change needs data before it can be judged. *(DRAFT: exact window TBD with the ruleset; don't tune on a near-empty sample.)*
-- **After any material change** (incl. the engine's own), let the lever settle before touching it again; read `decision-log.md` to know when each lever last moved.
-- **Grace = "don't tune", not "don't look":** hard failures (no impressions ≥ N days; tracking broken on an explicit signal; meaningful spend with zero conversions above a click floor) are still **escalated** during grace — they are not optimizations.
+## The bidding-policy ruleset
+The engine is a **nudge** model (step the bid toward the target, not solve for a target-CPC) — deliberately, because pilot per-keyword volumes are thin and a computed target-CPC would itself be noisy. Six knobs; numbers in `strategy.md` are authoritative where they overlap.
+
+### Canonical effective ACOS (used by every decision below)
+Weight the **components** (spend and sales), then form the ratio — never average the per-window ACOS values (a low-volume window would distort the mean). Renormalize when a window is empty (a new keyword has no 31–90-day bucket → the present windows scale to 100 %).
+```
+eff_spend = Σ wᵢ·spendᵢ , eff_sales = Σ wᵢ·salesᵢ , eff_ACOS = eff_spend / eff_sales
+windows:  0–2 d → 0.10 | 3–7 d → 0.30 | 8–30 d → 0.50 | 31–90 d → 0.10
+```
+The 0–2-day window is down-weighted on purpose: spend is reported immediately but sales lag 7–10 days, so the freshest days look artificially expensive.
+
+### The six knobs
+| # | Knob | Rule |
+| :-- | :-- | :-- |
+| 1 | **Significance gate** | Touch a keyword only if **active ≥ 21 days AND** its posture click-floor is met in the weighted window. Floor ≈ **3 / CVR** clicks (enough that "0 orders" is genuinely unlikely if it were a winner). Windspiel posture CVRs → floors: **MRK ≥ 5 · GEN ≥ 12 · WTB ≥ 20** clicks. Evidence is direction-aware: lowering needs enough clicks to believe "doesn't convert"; raising needs *proven* profitable conversions, not a low ACOS on a few clicks. **AUT has no per-keyword gate** — managed at campaign level (see *AUT*). |
+| 2 | **Window** | the canonical eff_ACOS above. |
+| 3 | **Step size** | per autonomy: **new** (project / campaign / keyword) **≤ 20 %**, **established ≤ 10 %** per change. With the 7-day settling (knob 6) a keyword moves at most ~weekly, so this is "per change", not compounding daily. Magnitude ceiling is enforced by `om-autonomy-levels`. |
+| 4 | **Direction** | eff_ACOS > target + gate met → **lower**. eff_ACOS < target + impression headroom + proven conversions → **raise**. Gate-many clicks & 0 orders → **lower hard / pause + escalate**. |
+| 5 | **Floor / ceiling** | bid floor **€0.07**. The binding economic ceiling is a **dynamic max-CPC = target_ACOS × CVR × price** (per product; e.g. €30 product, 12.5 % CVR, 18 % target → €0.68) — never bid above what the product can repay, especially in the looser Research band. Hard override **€5.00**: beyond it (either bound) requires human approval via the Account Manager. |
+| 6 | **Settling** | freeze a lever **7 days** after any change (read `decision-log.md` for the last move). **Override only downward** + escalate when pacing projects a budget overshoot (allowed/day = remaining budget ÷ remaining days) — the emergency exit may cut or pause, never raise. |
+
+### AUT (Auto campaigns) — not bid per keyword
+AUT is a discovery feeder, not a profit campaign. It carries **no ACOS target**. It is governed by **(a) a spend cap = the % of monthly budget set in `strategy.md`** (Windspiel: 10 %) and **(b) graduation yield** — how many terms it feeds into the real campaigns (owned by `om-amazon-positive-targeting`). Cap hit without graduations over several runs → throttle + escalate. The engine never prices individual AUT targets.
+
+### Pacing
+Spread the monthly ceiling evenly (allowed/day = remaining budget ÷ remaining days); reallocate across campaigns weighted by product `priority` (manifest §8). The `budget.csv` total is sacred — at risk of overshoot, throttle (knob 6 override), never top up.
+
+## Settling / anti-thrash
+- **New campaigns / new structures:** hands-off until **both** the 21-day window **and** the posture click-floor are met (knob 1) — a change needs data before it can be judged.
+- **After any material change** (incl. the engine's own), the lever is frozen 7 days (knob 6); read `decision-log.md` to know when each lever last moved.
+- **Grace = "don't tune", not "don't look":** hard failures (no impressions ≥ N days; tracking broken on an explicit signal; meaningful spend with zero conversions above the posture click-floor) are still **escalated** during grace — and the budget-overshoot override (knob 6) may always cut.
 
 ## Run sequence (draft)
 1. Inbox cycle first (`lx-paperclip-inbox-cycle`); a comment/task wake is handled, not the daily mandate.
@@ -58,7 +85,7 @@ When reallocating budget across campaigns within the property total, **weight by
 3. Open today's dated run issue; check out.
 4. Resolve wiring (`data-sources.md`); read context (autonomy from `client.md`, `strategy.md`, `budget.csv`, `learnings.md`, own `decision-log.md`).
 5. Pull performance from Supabase at campaign/keyword/target level (respect the ~1-day lag; freshest day is yesterday).
-6. **Engine:** stage per-keyword/target bid changes against the R/P bands (pending ruleset).
+6. **Engine:** stage per-keyword/target bid changes against the R/P bands (*The bidding-policy ruleset*) — apply the gate, the weighted eff_ACOS, direction, step, floor/dynamic-ceiling.
 7. **Policy:** review campaign aggregates + anomalies; drop anything in settling from the action set (but escalate hard failures); apply the autonomy band to each staged change.
 8. Apply within-autonomy changes via the Ads API; **escalate** the rest (reassign the run issue up + `todo`, per the inbox cycle — never `blocked`).
 9. **Verify** each applied change via the Ads API (not Supabase — a just-made change isn't ingested yet).
@@ -89,4 +116,4 @@ On a no-action run, append exactly one dated `## [..] — Optimizer — RUN — 
 - `lx-paperclip-inbox-cycle` — escalation = reassign the run issue up + `todo`, never `blocked`.
 
 ## Maintenance
-This skill owns the optimization *procedure and discipline* (the engine/policy split, settling rule, decision-log contract). The bid *numbers/rules* are the pending ruleset; permission ceilings live in `om-autonomy-levels`; API/schema in `om-amazon-ads-reference`; evolving best practice in Drive `KI-Wissen/Amazon`.
+This skill owns the optimization *procedure and discipline* (the engine/policy split, the bidding-policy ruleset mechanism, settling rule, decision-log contract). Property-specific *numbers* (target-ACOS bands, AUT cap) live in `strategy.md`; permission ceilings in `om-autonomy-levels`; API/schema in `om-amazon-ads-reference`; evolving best practice in Drive `KI-Wissen/Amazon`.
