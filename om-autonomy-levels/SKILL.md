@@ -42,9 +42,9 @@ For proven properties with a solid track record.
 - Budget reallocation between campaigns up to **30 %** of the property's total budget (the total itself is unchanged).
 - Adjusting smart-bidding targets (tCPA / tROAS) within **±15 %** of the current target.
 
-## Amazon — lever map per level (DRAFT)
+## Amazon — lever map per level
 
-> **DRAFT.** The bands below mirror the Google map as a sensible starting point; confirm them together with the **bidding-policy ruleset** (`om-amazon-optimization`, memo §12.5) and the **negative ruleset** (memo §12.6). Do not treat the numbers as final.
+> **Confirmed against the rulesets (2026-06-25).** The level here is the **ceiling** — the most a trust level permits. The engine's *chosen* per-item bid step is the **maturity rule** (new ≤ 20 % / established ≤ 10 % per change) in `om-amazon-optimization` (*The bidding-policy ruleset*, knob 3); the effective change is the **smaller** of engine step and level ceiling. Harvest/graduation and waste thresholds live in `om-amazon-positive-targeting` / `om-amazon-negative-targeting`. Numbers are not restated here — only the permission ceilings are.
 
 On Amazon the daily Optimizer runs a **deterministic bidding engine** over all keywords/targets, and the LLM sets the **policy** (memo §7). Autonomy therefore gates two different things: the **size of a single engine-applied change**, and **who may change the policy itself**.
 
@@ -52,19 +52,19 @@ On Amazon the daily Optimizer runs a **deterministic bidding engine** over all k
 No live changes. Analyze performance, document findings, propose changes as tasks. Everything that would mutate the account escalates.
 
 ### Standard (Amazon)
-- **Bid changes** (per keyword/target, applied by the engine within policy): up to **±20 %** per item per run *(DRAFT)*.
+- **Bid changes** (per keyword/target, applied by the engine within policy): ceiling **±20 %** per item per run — within it the engine uses its maturity step (`om-amazon-optimization` knob 3).
 - **Keyword/target adds** from harvesting (positive Targeter) within the documented strategy.
 - **Negative adds** (waste negatives; graduation negatives) — the negation web.
-- **Budget reallocation between campaigns** within the property's total: up to **15 %** of the total *(DRAFT)* (the total itself is unchanged).
+- **Budget reallocation between campaigns** within the property's total: up to **15 %** of the total (the total itself is unchanged).
 - **Pausing individual poor keywords/targets** is allowed.
 
 ### Extended (Amazon)
-- **Bid changes** up to **±35 %** per item per run *(DRAFT)*.
+- **Bid changes**: ceiling **±35 %** per item per run (the engine's maturity step still applies within it).
 - Keyword/target/negative adjustments as in Standard.
-- **Budget reallocation between campaigns** up to **30 %** of the total *(DRAFT)*.
-- **Adjusting the bidding policy / target-ACOS bands** (the engine's Research vs. Profit bands) within a bounded step *(DRAFT — the analogue of the Google smart-bidding target change; size TBD with the ruleset)*.
+- **Budget reallocation between campaigns** up to **30 %** of the total.
+- **Adjusting the target-ACOS bands** (the Research vs. Profit bands) within **±15 %** of the value set in `strategy.md` — the analogue of the Google smart-bidding target change. The durable band in `strategy.md` stays human-owned: a lasting change is proposed up, not silently rewritten.
 
-**Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; any change beyond the active level's bands.
+**Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; a bid that would breach the **€0.07 floor or the €5.00 hard max-CPC** (knob 5) — to the human via the Account Manager; any change beyond the active level's bands.
 
 ## Always escalate (every level)
 Regardless of level, escalate these to the department head:
