@@ -19,11 +19,12 @@ Load only the file you need (progressive disclosure); do not read them all up fr
 | `references/match-types.md` — keyword match types (broad/phrase/exact), product/category/auto targeting expressions, negative match types, and where each value lives in the data. | ✅ data-grounded |
 | `references/bulk-and-rate-limits.md` — bulk-creation model, throttling/back-off, partial-failure handling. | ✅ grounded in the official Ads API rate-limiting docs (limits are dynamic — no fixed numbers; 429 + `Retry-After`) |
 | `references/common-errors.md` — error lookup + the binding hard-stop/escalate rule. | ✅ standard HTTP semantics + rate-limit specifics; extend the error *bodies* from run logs |
+| `references/mcp-write-tools.md` — the **write path**: how the `amazon-ads` MCP is reached (FIXED to the property), the skill-action → MCP-tool map, verify-after-write, and the delete/admin exclusions. | ✅ grounded in the live MCP tool surface (EU beta, 2026-06-25) |
 
 ## Data path (the binding rule)
 
 - **Read performance from Supabase** (`amazon_ads_raw.*` / the `public` views), the same source the lexacore.de customer reporting uses — never read performance directly from the Ads API.
-- **Write changes via the Amazon Ads API/MCP**, never into Supabase.
+- **Write changes via the `amazon-ads` MCP** (`references/mcp-write-tools.md` — tool map + verify-after-write), never into Supabase.
 - The two data homes join on **ASIN** (see architecture memo §4 / brief §4).
 
 ## Maintenance
