@@ -200,8 +200,23 @@ the whole file. (Fallback only if `gdrive_append_file` is unavailable: a manual
 read-modify-write — `gdrive_read_file` the full file, prepend your entry, then
 `gdrive_write_file` the **entire** combined document. **Never** `gdrive_write_file` only your
 new entry: it overwrites the whole file, which is exactly how a nightly run once wiped the
-log.) Either way, re-read afterwards and confirm your new entry **and** the older entries are
-all present.
+log.)
+
+**Write-safety discipline (do this on every write — the reviewer's trust depends on it):**
+
+1. **Dedup guard — check before you write.** Read the current top of the log first. If an
+   entry with the *same timestamp and the same decision* is already there, the write already
+   happened (a retry, a double-run) — **do not append it again.** A duplicated entry makes the
+   reviewer double-count one action.
+2. **`position: "start"` is mandatory, never the default end-append.** The log is strictly
+   **newest-first**. Appending at the end (the tool's default) is a bug: it buries the entry
+   below older ones and a top-down window read misses it. Always pass `position: "start"`.
+3. **Verify after writing — and self-heal.** Re-read the log and confirm three things: your
+   new entry is now **at the very top**, it appears **exactly once**, and the older entries are
+   **all still present**. If it landed at the end, is duplicated, or the history is missing,
+   the write went wrong — fix it now (remove the duplicate / restore correct newest-first order
+   via a manual read-modify-write) before ending the run. Do not leave a malformed log for the
+   reviewer.
 
 Append one entry per decision, including proposals and escalations:
 
