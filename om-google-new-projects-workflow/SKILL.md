@@ -1,97 +1,130 @@
 ---
 name: om-google-new-projects-workflow
-description: Was zu tun ist bei neuen Google Ads-Projekten
+description: Procedure for setting up a new Google Ads project — for a brand-new client (onboarding form → n8n) or a new property/project for an existing client (manual issue). Covers folder scaffold, draft docs, website analysis, the Paperclip project, the two required sub-agents, and the two human gates.
 ---
 
-# Übersicht
+# New Google Ads project — setup procedure
 
-Dieser Skill beschreibt, welche Arbeitsschritte beim Beginn neuer Google Ads-Projekte zu erledigen sind.
+Run this when a new Google Ads project starts. It is **entry-agnostic**: the same steps apply whether the trigger is a brand-new client (Google onboarding form → n8n) or an existing client starting a new property/channel (a manually created Paperclip issue).
 
-## Dateien und Ordner
+## Trigger & handoff
 
-Prüfe, ob die Dateien und Ordner vorhanden sind. Wenn nicht, dann erstelle sie zunächst als leere Dateien und erstelle danach einen Issue an das Board, damit die Dateien befüllt werden.
+You are woken by a Paperclip issue assigned to you, titled `Onboarding Google Ads: <Org> (<property>)`. The issue description is the handoff and already carries the full intake:
 
-**Genereller Arbeitsraum**
+- Organisation (client display name), primary website, additional websites
+- Property slug (domain with dots → underscores, e.g. `reiseglueck-bergstrasse_de`)
+- Google Ads customer ID (CID), main goal, target CPA/ROAS, monthly budget
+- Geography, competitors
+- Creative context: why-us, problem solved, target group, tone (language + head/heart), forbidden words
+- Contact person + email
 
-```
-https://drive.google.com/drive/u/0/folders/0APpEXGtLsCwkUk9PVA
-Folder-ID: 0APpEXGtLsCwkUk9PVA
-```
+n8n does **not** create Drive folders. You build the scaffold yourself via the Google Drive MCP. The human's involvement is the two gates below.
 
-**Ordner des Kunden**
+## Division of labour (read first — it is a guardrail)
 
-```
-01_Kunden & Projekte/01_Kunden/[Kundenname]/
-```
+`client.md`, `strategy.md` and `budget.csv` are **human-owned** (see repo `CLAUDE.md` §7/§10). You may create the **initial version** of each at onboarding, but you never edit them again during operation — every later change is human-only.
 
-* client.md
+- `client.md`, `strategy.md`: create as **ENTWURF**; the human approves them → FREIGEGEBEN at Gate 1.
+- `budget.csv`: write the **customer's stated monthly budget from the form once** at creation (the same figure a human would copy over), then **never touch the file again**. The human confirms it at Gate 1 and owns all later changes.
 
-**Projektdurchführung und Assets**
+| Task | Peggy (agent) | Human |
+| :--- | :--- | :--- |
+| Folder scaffold | creates | — |
+| `client.md`, `strategy.md` | creates as **ENTWURF** | approves → FREIGEGEBEN (Gate 1) |
+| `budget.csv` | writes the customer's stated figure **once**, then never again | confirms at Gate 1; owns all later changes |
+| Website analysis | produces | reviews (Gate 1) |
+| Paperclip project + 2 agents | creates (agents PAUSED) | enables (Gate 2) |
+| MCC link + BigQuery data layer | — | provisions (Gate-2 prerequisite) |
 
-```
-01_Kunden & Projekte/01_Kunden/[Kunde]/02_Projektdurchführung & Assets/01_Google Ads/[property]/
-```
+**Gate 1 is a Paperclip board approval** (see Step 5), not a comment: the process halts until the board approves.
 
-* data-sources.md
-* strategy.md
-* budget.csv
-* learnings.md (nur leere Datei erstellen, nicht Issue erstellen)
-* decision-log.md (nur leere Datei erstellen, nicht Issue erstellen)
+## Step 1 — Determine client & property
 
-**Reporting**
+1. **Client code** — each client has a short code (e.g. `RG`), assigned once and reused for all their projects. Reuse it if the client's `client.md` already has one; otherwise assign a sensible 2–4 letter code and record it in `client.md`.
+2. **Property slug** — take it from the issue (domain, dots → underscores, mirroring `lexacore_ai` / `lexacore_de`).
+3. **New vs. existing client** — check by name whether the client folder + `client.md` already exist under the client root:
+   - **New client** → create the full folder skeleton + draft `client.md` (Steps 2–3).
+   - **Existing client** → reuse the folder and `client.md`; only add the new property subtree (Step 2, property parts) and append the new property under "Channels & Properties" in `client.md`. Reuse client-level context (tone, forbidden words, client code).
 
-```
-01_Kunden & Projekte/01_Kunden/[Kunde]/04_Reporting & Analysen/01_Google Ads/[property]/
-```
+## Step 2 — Create the Drive structure (Drive MCP)
 
-* (beim Setup nur den leeren Property-Ordner anlegen; die Detailreports `[YYYY-MM].md` entstehen hier später durch Peggy beim Reporting. Die `decision-log.md` liegt jetzt unter `02_Projektdurchführung & Assets`.)
-
-## Agenten
-
-Jedes Google-Projekt benötigt mindestens 2 Agenten:
-
-* **\[property] - Optimizer:** Prüft jede Nacht die Performance der Kampagnen, passt Gebote und Keywords an und spricht Empfehlungen für umfassendere Änderungen aus. Dokumentiert seine Entscheidungen in der decision-log.md.
-* **\[property] - Reviewer:** Liest einmal jede Woche die decision-log.md und prüft die vergangenen Entscheidungen des Optimizer-Agenten aus den letzten 14 Tagen auf ihre Auswirkungen. Die Ergebnisse schreibt der Reviewer in die learnings.md. Ziel: Erkenntnisgewinn und Verbesserung.
-
-Erstelle die Agenten basierend auf schon vorhandenen Agenten aus anderen Projekten (properties) und passe die Pfade der neuen Agenten an das neue Projekt an.
-
-## Webseitenanalyse
-
-Scanne die Webseite, die in der client.md des Kunden genannt wird, bewerte sie im Hinblick auf Google Ads und erstelle ein Dokument mit Deinen Erkenntnissen in folgendem Pfad:
+Navigate from the fixed client-root Folder-ID (authoritative schema and IDs live in **`lx-gdrive-onlinemarketing`** — do not hard-code IDs here). Create the **full client skeleton**; idempotent (check-then-create, never overwrite an existing file). It mirrors existing clients:
 
 ```
-01_Kunden & Projekte/01_Kunden/[Kunde]/02_Projektdurchführung & Assets/01_Google Ads/[property]/webseiten-analyse-google.md
+01_Kunden & Projekte/01_Kunden/<Org>/
+  00_Vertragsunterlagen & Stammdaten/   (00_Angebot, 01_Vertrag, 02_NDAs)
+  01_Management & Kommunikation/         (00_Protokolle, 01_Korrespondenz, 02_Projektplanung)
+  02_Projektdurchführung & Assets/01_Google Ads/<property>/
+  03_Input Kunde/
+  04_Reporting & Analysen/01_Google Ads/<property>/   (+ 11_Absätze, 12_Dashboards, 99_Monatsreport)
+  05_Archiv/
+  client.md
 ```
 
-**Format des Dokuments:**
+Files inside the property folder `02_Projektdurchführung & Assets/01_Google Ads/<property>/`:
+
+- `strategy.md` — draft, status ENTWURF (Step 4)
+- `budget.csv` — write the customer's stated monthly budget from the form (one row), then never edit it again (human-only thereafter)
+- `data-sources.md` — technical wiring draft (Step 4)
+- `learnings.md` — empty
+- `decision-log.md` — empty
+
+The reporting property folder stays empty at setup; monthly reports land there later.
+
+## Step 3 — Draft `client.md` (ENTWURF)
+
+Create `client.md` in the client root as a **draft** using the manifest structure: Stammdaten, Autonomy Level (default **Standard**), Channels & Properties, Creative context, **stable Drive Folder-IDs**, Reporting, History. Populate from the issue data and mark it clearly as ENTWURF for Gate 1.
+
+Record the **client code** and the **stable Drive Folder-IDs** — they are the binding anchor. The folder *name* may be renamed by a human later; agents and reporting bind to the IDs, never the name.
+
+## Step 4 — Draft `strategy.md` & `data-sources.md`
+
+- `strategy.md` (status: ENTWURF) — pre-fill goal, target group, geography and competitors from the issue. The human refines and approves at Gate 1.
+- `data-sources.md` — technical wiring: BigQuery project/dataset, the client's Google Ads customer ID, and the per-property view `v_<property>_campaign_trends`. **State in the file** that this view + ingestion still have to be provisioned (Gate-2 prerequisite).
+
+## Step 5 — Website analysis (this triggers Gate 1)
+
+Scan the client website (and competitors), assess it for Google Ads, and write `.../01_Google Ads/<property>/webseiten-analyse-google.md`:
 
 ```
 ---
-erstellt: [DATUM]
-analysiert_von: Peggy
-webseiten: [URL]
-kanal: Google Ads
+created: <date>
+analyzed_by: Peggy
+websites: <URL>
+channel: Google Ads
 ---
-
-## Gesamtbewertung
-[Ampel-Tabelle: Klarheit, CTA, Landingpages, Social Proof, Tracking]
-
-## Was gut ist
-[Stärken]
-
-## Keyword-Potenzial
-[Cluster A, B, C mit konkreten Keywords]
-
-## Empfohlene Kampagnenstruktur
-[Kampagne 1, 2, 3 mit Zielen und Budget-Anteilen]
-
-## Handlungsbedarf vor Kampagnenstart
-[Kritisch 🔴 / Empfehlenswert 🟡 / Gut 🟢]
-
-## Empfehlung Kampagnenstart
-[Womit beginnen, warum]
+## Overall assessment      [traffic-light table: clarity, CTA, landing pages, social proof, tracking]
+## Strengths
+## Keyword potential        [clusters A/B/C with concrete keywords]
+## Recommended campaign structure   [campaigns 1–3 with goals and budget shares]
+## Action items before launch        [Critical 🔴 / Recommended 🟡 / Good 🟢]
+## Launch recommendation     [where to start, why]
 ```
 
-Erstelle einen Task für das Board: "Webseiten-Analyse liegt vor für \[URL] – bitte prüfen und ggf. Handlungsbedarf angehen, bevor Kampagne startet."
+Then open **GATE 1 as a Paperclip board approval linked to this issue** (`POST /api/issues/{issueId}/approvals`) — not a plain comment or task. The approval request summarises what you drafted (`client.md`, `strategy.md`, `budget.csv`) plus the website analysis, and asks the human to review, confirm the budget, set the docs to FREIGEGEBEN, and clear any action items before launch.
 
-**Wichtig:** Ohne abgeschlossene Webseiten-Analyse startet kein Google-Projekt.
+**Halt here.** Do not proceed to Steps 6–7 until the board approves. If the board **requests revision**, revise the drafts and resubmit the approval; on **rejection**, stop and await instructions.
+
+> Canonical approval syntax (create / await / resubmit) belongs in `lx-paperclip-inbox-cycle`. If it is not documented there yet, treat that as a gap to close — do not copy raw endpoints into every skill.
+
+**No Google project launches without a completed website analysis and a granted Gate-1 board approval.**
+
+## Step 6 — Paperclip project
+
+Create a Paperclip project **`om-<CODE>-<channel>`** (Google → `om-<CODE>-goog`, e.g. `om-RG-goog`) and nest this project's operational issues in it. Mirrors the Amazon convention (`om-WI-amz`).
+
+## Step 7 — Sub-agents (after Gate 1) → Gate 2
+
+Every Google project needs two sub-agents, **cloned from an existing project** (blueprint: the `lexacore.ai` Optimizer + Reviewer) with paths adjusted to the new property:
+
+- **`<domain> Optimizer – Google`** — nightly: reads performance, adjusts bids/keywords within autonomy, logs decisions to `decision-log.md` (see `om-google-optimization`).
+- **`<domain> Reviewer – Google`** — weekly: reads the last 14 days of `decision-log.md`, judges each decision against `strategy.md`, writes durable lessons to `learnings.md` (see `om-google-review`).
+
+Naming: the agent display name uses the **dotted domain** (`reiseglueck-bergstrasse.de Optimizer – Google`); the property **folder** uses the underscore slug (`reiseglueck-bergstrasse_de`).
+
+Create the agents **PAUSED**. Enabling them is **GATE 2** — a deliberate human action — with two hard prerequisites:
+
+1. The client's Google Ads account (CID) is linked into the Lexacore MCC.
+2. The per-property BigQuery data layer (`v_<property>_campaign_trends` + ingestion of the CID) is provisioned — without it the optimizer and reviewer have nothing to read.
+
+Campaigns are created later, **PAUSED**, and handed to the human per `om-google-campaign-creation` and the `CLAUDE.md` §10 guardrails.
