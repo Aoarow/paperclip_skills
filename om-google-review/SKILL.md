@@ -137,8 +137,10 @@ delete the *history* of a genuine past lesson; mark it superseded.
 
 1. **Inbox cycle first** (`lx-paperclip-inbox-cycle`). A comment/task wake is handled as that
    task, **not** as the weekly mandate.
-2. On the scheduled **weekly** tick: **idempotency check** — a review dated this week already
-   in `learnings.md`? → close, done.
+2. On the scheduled **weekly** tick: **idempotency check (ISO calendar week, Mon–Sun)** — does
+   `learnings.md` already carry a review dated **within the current ISO week**? → close, done.
+   Use the ISO week, not a rolling 7-day window, so exactly one review lands per week regardless
+   of a prior entry's exact weekday.
 3. **Open the dated review run issue**, assigned to self, and check it out.
 4. **Read context:** `data-sources.md` (wiring), `decision-log.md` (the window), `strategy.md`
    (goals), `client.md` (autonomy level), `budget.csv` (ceiling), prior `learnings.md`.
