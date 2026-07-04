@@ -56,7 +56,7 @@ Navigate from the fixed client-root Folder-ID (authoritative schema and IDs live
   01_Management & Kommunikation/         (00_Protokolle, 01_Korrespondenz, 02_Projektplanung)
   02_Projektdurchführung & Assets/01_Google Ads/<property>/
   03_Input Kunde/
-  04_Reporting & Analysen/01_Google Ads/<property>/   (+ 11_Absätze, 12_Dashboards, 99_Monatsreport)
+  04_Reporting & Analysen/01_Google Ads/<property>/
   05_Archiv/
   client.md
 ```

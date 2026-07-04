@@ -18,7 +18,7 @@ These folders exist exactly once and never move. Always address them by Folder-I
 | KI-Wissen/Amazon                                  | 1cKaVTuoNgVGujXPY8FK2I8z5IiKdieEX  |
 | KI-Wissen/Meta                                    | 14RKRyP337oyceZljS_OkuHOlfaYLP0Ak  |
 | Onboarding-Queue                                  | 10zw2H4WJTU5on9fH4qarjxh6GGjK6OIR  |
-| 01_Kunden & Projekte/01_Kunden (**client root**)  | 1LWUKYiwSSzrqiqzFVKeNRoPEBKOxLH7l                    |
+| 01_Kunden & Projekte/01_Kunden (**client root**)  | 1LWUKYiwSSzrqiqzFVKeNRoPEBKOxLH7l  |
 
 ## 2. Knowledge base (maintained by Research agents)
 
@@ -31,7 +31,7 @@ Channels: `Google`, `Amazon`, `Meta`.
 
 ## 3. Client folder schema (navigate by name from client root)
 
-Every client follows this exact structure. Start from the client-root Folder-ID (section 1) and navigate **by name** – the Folder-IDs below the client level differ per client and must not be hard-coded.
+Every client follows this exact structure. The **top-level folders (00–05) are identical for every client** (verified across all live clients). Start from the client-root Folder-ID (section 1) and navigate **by name** – the Folder-IDs below the client level differ per client and must not be hard-coded.
 
 ```
 01_Kunden & Projekte/
@@ -39,26 +39,32 @@ Every client follows this exact structure. Start from the client-root Folder-ID 
     └── [client-name]/
         ├── client.md                                WRITE: Human only · READ: all
         │       Master data: autonomy level, channels, properties, project info.
-        │       Critical document, filled at project start. CHANGED BY HUMAN ONLY.
+        │       Critical document, created at project start. CHANGED BY HUMAN ONLY.
+        │       (An agent may draft the initial ENTWURF at onboarding; the human owns the FREIGEGEBEN version — see §4.)
         │
+        ├── 00_Vertragsunterlagen & Stammdaten/      WRITE: Human · READ: all
+        │       (00_Angebot, 01_Vertrag, 02_NDAs)
+        ├── 01_Management & Kommunikation/           WRITE: Human · READ: all
+        │       (00_Protokolle, 01_Korrespondenz, 02_Projektplanung)
         ├── 02_Projektdurchführung & Assets/
         │   └── [Channel]/                            e.g. 01_Google Ads
         │       └── [property]/
         │           ├── strategy.md                   WRITE: Human, Roger, Peggy · READ: all
-        │           ├── budget.csv                    WRITE: Human · READ: all
+        │           ├── budget.csv                    WRITE: Human · READ: all   (onboarding exception — see §4)
         │           ├── learnings.md                  WRITE: Reviewer agents · READ: all
         │           ├── data-sources.md               WRITE: Human, Roger, Peggy · READ: all
         │           ├── webseiten-analyse-google.md   WRITE: Peggy · READ: all   (Google only)
         │           └── decision-log.md               WRITE: Optimizer agents · READ: all
         │
-        └── 04_Reporting & Analysen/
-            ├── 01_Monatsreport/
-            │   ├── [monthly report files]            WRITE: Peggy · READ: all
-            │   └── dashboard-[YYYY-MM]-[channel].html WRITE: Peggy · READ: all
-            └── [Channel]/
-                └── [property]/
-                    └── [YYYY-MM].md                  WRITE: Peggy · READ: all   (property detail reports)
+        ├── 03_Input Kunde/                           WRITE: Human · READ: all   (customer-provided material)
+        ├── 04_Reporting & Analysen/
+        │   └── [Channel]/
+        │       └── [property]/
+        │           └── [YYYY-MM].md                  WRITE: Peggy · READ: all   (property detail reports)
+        └── 05_Archiv/                                WRITE: Human, Peggy · READ: all
 ```
+
+> **Reporting aggregate subfolders are not yet standardised** (flagged, do not invent a canonical answer). Google clients (e.g. Lexacore UG) use `11_Absätze / 12_Dashboards / 99_Monatsreport`; Amazon clients (Windspiel, Bimmerle) use `00_Dashboards / 01_Absätze / 02_Werbung`. Only the **property detail report** path above (`04_Reporting & Analysen/[Channel]/[property]/[YYYY-MM].md`) is canonical. **New-project setup creates only the top-level `04_Reporting & Analysen/` plus the `[Channel]/[property]/` folder** — the aggregate/report subfolders are created at reporting time and should be harmonised in a separate pass.
 
 ## 3a. Channel-specific maps
 
@@ -74,6 +80,8 @@ Before working in a client's `00_Amazon` folder, read `lx-gdrive-amazon.md`.
 
 ## 4. Read/write rule
 
-The WRITE/READ annotations above are binding. Never write to a document you only have read access to. `client.md` and `budget.csv` are human-owned – agents read them, but never change them.
+The WRITE/READ annotations above are binding. Never write to a document you only have read access to. `client.md`, `strategy.md` and `budget.csv` are **human-owned** – agents read them and do not change them during operation.
+
+**Two onboarding exceptions** (single source of truth for the procedure: `om-google-new-projects-workflow`): at project start an agent may (a) draft the initial **ENTWURF** of `client.md` and `strategy.md` for human approval → **FREIGEGEBEN**, and (b) write the customer's stated budget figure into `budget.csv` **once**. After that, all three are human-only.
 
 **Adding to a file: use `gdrive_append_file`.** To add an entry to any accumulating document (e.g. `decision-log.md`, `learnings.md`), use `gdrive_append_file` (`position: "start"` to prepend / `"end"` to append) — it preserves the existing content server-side, so you pass only your new fragment. **Do not** use `gdrive_write_file` to add an entry: it **overwrites the entire file**, so passing only your fragment destroys everything already there. Editing existing text in place is a strict read-modify-write: `gdrive_read_file` the full file → make the change in memory → `gdrive_write_file` the **complete** document back → re-read and confirm the prior content survived. This protects the history that accumulating logs depend on.
