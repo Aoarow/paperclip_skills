@@ -124,7 +124,7 @@ Naming: the agent display name uses the **dotted domain** (`reiseglueck-bergstra
 
 Create the agents **PAUSED**. Enabling them is **GATE 2** — a deliberate human action — with two hard prerequisites:
 
-1. The client's Google Ads account (CID) is linked into the Lexacore MCC.
-2. The per-property BigQuery data layer (`v_<property>_campaign_trends` + ingestion of the CID) is provisioned — without it the optimizer and reviewer have nothing to read.
+1. **MCC link.** The client's Google Ads account (CID) is linked into the Lexacore MCC (`7807674607`). This is also what feeds the data: ingestion is a native BigQuery Data Transfer at MCC level, so once linked, the client's data flows into `google_ads_raw` automatically — there is no per-client transfer to set up.
+2. **Per-property views.** Run `references/create_google_views.sql` (find-replace `{{PROPERTY}}` = the BigQuery-safe slug — the domain with **every** non-alphanumeric char turned into `_`, e.g. `reiseglueck_bergstrasse_de`; `{{CID}}` = the raw numeric customer id). It creates the three **customer-scoped** views (`v_<property>_campaign_performance_daily` / `_campaign_trends` / `_budget_utilization`) that the optimizer and reviewer read. The views filter by `customer_id`, so clients never mix. Note: the BigQuery slug may differ from the Drive folder slug (BigQuery names cannot contain `-` or `.`).
 
 Campaigns are created later, **PAUSED**, and handed to the human per `om-google-campaign-creation` and the `CLAUDE.md` §10 guardrails.
