@@ -149,7 +149,7 @@ Campaigns follow a fixed name structure:
 |:--|:--|
 | CLIENT | 2 uppercase characters, **unique per client** (e.g. `WI` = Windspiel, `BI` = Bimmerle). Identifies the client's campaigns in a Lexacore-wide analysis. It does **not** need to encode the account, marketplace, or sales channel: those are recovered from the performance data via `profileId → amazon_ads_raw.profiles` (`countryCode` = marketplace, `accountInfo.type` = seller/vendor, `accountInfo.name`/`id` = account). The code is set per client in `client.md`. *(Field formerly defined per-account; changed 2026-06-15 once the data was confirmed to carry those dimensions.)* |
 | ASIN | the advertised ASIN |
-| PRODUCT TITLE | first 35 characters of the product title (see sanitization rule below) |
+| PRODUCT TITLE | the product title, **normalized to exactly 35 characters** — truncate if longer, pad if shorter (see the length rule below) |
 | CAMPAIGN TYPE | `SPRO` = Sponsored Products / `SPBR` = Sponsored Brands / `SPDI` = Sponsored Display |
 | STRATEGY | `MRK` = Own Brand / `WTB` = Competitor / `GEN` = Generic / `AUT` = Auto |
 | MATCH TYPE | `Broad` / `Exact` — or `Auto` for AUT campaigns |
@@ -158,8 +158,9 @@ Campaigns follow a fixed name structure:
 | LEXA | fixed marker identifying the campaign as managed by Lexacore |
 
 **Field-safety rules (so the name can be parsed unambiguously):**
-- The PRODUCT TITLE may contain **only letters (including umlauts and ß), numbers, and spaces.** All other characters — especially `-`, `/`, `|`, and punctuation such as `.` and `,` — are removed. Sanitize **first**, then truncate to 35 characters.
-- The NOTE field follows the same rule (no `-` or other separators), so it cannot break the parser.
+- The PRODUCT TITLE may contain **only letters (including umlauts and ß), numbers, and spaces** — plus the padding `_` defined below. All other characters — especially `-`, `/`, `|`, and punctuation such as `.` and `,` — are removed. Sanitize **first**, then normalize the length (next rule).
+- **Exact 35-character length (interim rule, 2026-07-05).** After sanitizing, the PRODUCT TITLE is **always exactly 35 characters**: truncate if longer; if shorter, **pad on the right with `_` (underscore)** until it reaches 35. The source is the Master-tab `product_name`. Uniform length keeps campaign names reliably distinguishable in reporting (position- *and* delimiter-based). `_` is the sole exception to the letters/numbers/spaces rule, reserved for padding: it does **not** clash with the `-` field separator and — unlike trailing spaces — is **not** trimmed by Amazon. *(Half-clean interim: Amazon is rolling out a new product-title system; the title source and this rule get redone properly then. Strip trailing `_` to recover the display name.)*
+- The NOTE field follows the base rule (letters/numbers/spaces, no `-` or other separators), so it cannot break the parser.
 
 **Example**
 
