@@ -130,6 +130,7 @@ score = Σ (wᵢ × rateᵢ)   over buckets i that pass the significance floor
   **zero conversions despite a sufficient click sample** (a floor — e.g. ≥ 30–50 clicks in
   the window). **Below that click floor, zero conversions is statistical noise on a small
   pilot, not a failure** — it is a normal `RUN — no action`, never an escalation.
+- **No data yet is not a failure.** If the property's BigQuery views return **no rows at all** (the MCC-level Data Transfer has not populated this account yet — normal in the first one to two nights after go-live, and until the first impressions land), that is a benign `RUN — no action`, never a failure or escalation. The `no impressions ≥ 3 days` hard-failure test applies only once the property has at least 3 days of data coverage.
 
 ---
 

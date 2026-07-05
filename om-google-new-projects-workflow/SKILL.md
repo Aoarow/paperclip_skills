@@ -40,7 +40,7 @@ n8n does **not** create Drive folders. You build the scaffold yourself via the G
 
 ## Step 1 — Determine client & property
 
-1. **Client code** — each client has a short code (e.g. `RG`), assigned once and reused for all their projects. Reuse it if the client's `client.md` already has one; otherwise assign a sensible 2–4 letter code and record it in `client.md`.
+1. **Client code** — each client has a code that is **exactly two letters** (uppercase, e.g. `RG` for Reiseglueck), assigned once and reused for all their projects. This length is a hard convention — never 3+ letters. Reuse it if the client's `client.md` already has one; otherwise assign a fitting two-letter code and record it in `client.md`.
 2. **Property slug** — take it from the issue (domain, dots → underscores, mirroring `lexacore_ai` / `lexacore_de`).
 3. **New vs. existing client** — check by name whether the client folder + `client.md` already exist under the client root:
    - **New client** → create the full folder skeleton + draft `client.md` (Steps 2–3).
@@ -120,7 +120,7 @@ Every Google project needs two sub-agents, **cloned from an existing project** (
 - **`<domain> Optimizer – Google`** — nightly: reads performance, adjusts bids/keywords within autonomy, logs decisions to `decision-log.md` (see `om-google-optimization`).
 - **`<domain> Reviewer – Google`** — weekly: reads the last 14 days of `decision-log.md`, judges each decision against `strategy.md`, writes durable lessons to `learnings.md` (see `om-google-review`).
 
-Naming: the agent display name uses the **dotted domain** (`reiseglueck-bergstrasse.de Optimizer – Google`); the property **folder** uses the underscore slug (`reiseglueck-bergstrasse_de`).
+**Naming — do not deviate.** The agent display name is `<dotted-domain> <Role> – Google`, e.g. `reiseglueck-bergstrasse.de Optimizer – Google` and `reiseglueck-bergstrasse.de Reviewer – Google` — matching the existing `lexacore.ai …` agents. Use the **property domain**, never the client/org name: a client can run several properties (e.g. `lexacore.ai` *and* `lexacore.de`), so org-based agent names would collide. The property **folder** uses the underscore slug (`reiseglueck-bergstrasse_de`); the agent **name** uses the dotted domain.
 
 Create the agents **PAUSED**. Enabling them is **GATE 2** — a deliberate human action — with two hard prerequisites:
 
