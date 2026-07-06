@@ -112,10 +112,12 @@ the **entire** combined document. **Never** `gdrive_write_file` only your new en
 overwrites the file and erases the history.) Either way, **re-read after writing** and confirm
 your new entry *and* the older entries all survive.
 
-One dated entry per weekly run:
+One dated entry per weekly run. **The header carries the ISO-week tag** so the idempotency
+check is a deterministic string match, never date arithmetic. Get the tag from the shell —
+`date +%G-W%V` (e.g. `2026-W28`); **never compute the week by hand.**
 
 ```
-## [YYYY-MM-DD] — Weekly review (window: <from>–<to>)
+## [YYYY-MM-DD · <ISO-week from `date +%G-W%V`, e.g. 2026-W28>] — Weekly review (window: <from>–<to>)
 - Reviewed: <#decisions, by agent/lever — e.g. Optimizer: 3 bid, 1 budget>
 - What worked: <decision → measured outcome → the lesson>  (or "—")
 - What didn't: <decision → measured outcome → the lesson>  (or "—")
@@ -137,10 +139,11 @@ delete the *history* of a genuine past lesson; mark it superseded.
 
 1. **Inbox cycle first** (`lx-paperclip-inbox-cycle`). A comment/task wake is handled as that
    task, **not** as the weekly mandate.
-2. On the scheduled **weekly** tick: **idempotency check (ISO calendar week, Mon–Sun)** — does
-   `learnings.md` already carry a review dated **within the current ISO week**? → close, done.
-   Use the ISO week, not a rolling 7-day window, so exactly one review lands per week regardless
-   of a prior entry's exact weekday.
+2. On the scheduled **weekly** tick: **idempotency check (deterministic, by ISO week).** Get this
+   run's week id from the shell — `date +%G-W%V` (e.g. `2026-W28`) — and scan `learnings.md` for a
+   review header already carrying that exact tag. Present → close, done. **Never** judge the week by
+   eyeballing dates or counting days in your head: read the current tag from the command and match
+   the string. A Saturday entry tagged `2026-W27` does **not** match a Monday run's `2026-W28`.
 3. **Open the dated review run issue**, assigned to self, and check it out.
 4. **Read context:** `data-sources.md` (wiring), `decision-log.md` (the window), `strategy.md`
    (goals), `client.md` (autonomy level), `budget.csv` (ceiling), prior `learnings.md`.
