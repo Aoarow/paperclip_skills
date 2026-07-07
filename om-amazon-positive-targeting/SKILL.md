@@ -37,6 +37,16 @@ A search term/ASIN target **graduates** when it has proven it converts. **Qualif
 
 Both halves of step 1–2 land together; a winner added without negating its source double-serves and dirties attribution.
 
+## When the matching Exact-Profit campaign doesn't exist yet
+
+A first winner for an ASIN often has **no Exact-Profit campaign to graduate into** (roster 0/15). Do **not** negate the source first — that would pull the winner from its live discovery campaign while the destination is still paused, so the term goes dark until a human enables it (a real serving gap). Split the move across a **human enable gate**, keeping one owning issue so nothing is left lying:
+
+1. **Build the missing Exact-Profit shell PAUSED** — one campaign per source strategy that needs it (a GEN winner → `…-GEN-Exact-P-…`, an AUT winner → `…-AUT-Exact-P-…`), naming per manifest §6, dual-SKU (FBM + FBA) product ads, a conservative placeholder budget that respects the property pacing cap (`strategy.md` §4). Shell only — **no keywords/targets yet**. Building the sibling Exact-Profit shell is in your lane; escalate to the Account Manager only for cross-property / head-term-ownership questions, not routine shells.
+2. **Ask the human to enable it** with a `request_confirmation` (`continuationPolicy=wake_assignee`) — **never** a bare `blocked` (that dead-ends the issue and triggers supervisor auto-recovery). Enabling a live campaign is a **human** action (guardrail §10): you propose, the human clicks.
+3. **On approval you wake automatically and finish** — now that the destination serves, complete the atomic move (add the exact keyword/target **and** negate-exact in the source; apply the on-add invariant). Verify via `query_*`, log to `decision-log.md`, set `in_review`.
+
+The confirmation card **is** the disposition — the issue is never left `blocked`, and the graduation completes in one continuous thread the moment the human enables. (Once the AM earns campaign-enable autonomy, the enable step can shift to it; until then it stays human.)
+
 ## The keyword roster (bounded per campaign)
 Each **Exact-Profit** campaign holds a **fixed roster of ≤ 15 keywords**. Fewer, data-rich keywords beat a long noisy tail — and on pilot budgets the cap is what lets each keyword accumulate enough clicks to clear the optimizer's significance gate. Adding is therefore a **swap, not an append**.
 
