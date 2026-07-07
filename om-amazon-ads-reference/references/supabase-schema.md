@@ -58,9 +58,13 @@ Until path 2 exists, the `public` views rely on path 1 — so a campaign that vi
 - **`companies`** — `id`, `name`.
 - **`sales_data`** — total sales (for TACOS, Phase 2 / monthly). Not yet wired to the ads data.
 
-## Planned `public` views (TO BUILD — open item)
+## `public` bridge views + `agent_reads.*` agent views (BUILT 2026-06-22 · scoped 2026-07-07)
 
-No `public` view joins `amazon_ads_raw.*` to `products`/`companies` yet. The intended layer (replacing the dropped hand-populated `amazon_daily_ad_performance`): derived views that (a) cast the ID-type mismatch away, (b) resolve ASIN via the naming convention, (c) join to `products`/`companies`, (d) expose tidy per-day ACOS/ROAS/CTR/CVR at campaign / keyword / target grain. Build these before the Optimizer reads live (brief §7, Supabase.md open items).
+Derived views resolve the ID-type mismatch, parse ASIN from the campaign name, join to `products`/`companies`, and expose tidy per-day ACOS/ROAS/CTR/CVR at campaign / keyword / target grain.
+
+- **Infrastructure views (`public.*`, `service_role`-only — NOT for agents):** `public.amazon_sp_campaign_daily` / `amazon_sp_keyword_daily` / `amazon_sp_target_daily` + helper `amazon_products_by_asin`. `security_invoker`, readable only by `service_role`; used for build/verification, not by agents.
+- **Agent views (`agent_reads.<prefix>_*` — READ THESE):** each property has its own tenant-isolated, SELECT-only views. Windspiel = `agent_reads.wi_sp_campaign_daily` / `wi_sp_keyword_daily` / `wi_sp_target_daily` / `wi_products_by_asin` (same columns as the `public` views). They are `security_definer`, **hard-filtered to the property's Ads `profileId`**, so other tenants in the same DB are invisible. A dedicated **SELECT-only** role (`amazon_ro_<property>`, e.g. `amazon_ro_windspiel`) reads only these — no writes, no other tenant, no raw-table access.
+- **Never** query `public.amazon_sp_*` or `amazon_ads_raw.*` from an agent — they are **denied** to the agent role. The connection (Supabase session pooler) + wrapper `~/.supabase-ro/q.sh "<SQL>"` are documented in the property's `data-sources.md`.
 
 ## Security — RLS state (surface, do not auto-fix)
 
