@@ -46,11 +46,18 @@ Two guards:
 
 Add waste negatives as **negative-exact** keywords and **negative product (ASIN)** targets, in the correct campaign/ad group (negative-phrase blocks too broadly — manifest §4).
 
+## Reading at scale — push the filter down
+The property may carry **20–50+ campaigns**, but waste is rare: at pilot budget a full week yields only a **handful of candidates** (single digits is normal). The context cost of a run scales with the **candidate count, not the campaign count** — as long as the read is done right.
+
+- **Never pull per-campaign target/keyword inventories into context to eyeball them.** That scales with campaign count and will not fit at 30–50 campaigns. The Ads API `query_*` calls are for the **write target lookup and verify read-back only**, not for scanning performance.
+- **Run one aggregate query (per posture) that returns only threshold-breaching rows.** Aggregate the week window per `target_id` / `keyword_id` (`sum(clicks)`, `sum(orders_7d)`, `sum(spend)`) from the property's Supabase reader, then filter **in SQL** to the waste thresholds (`orders = 0 AND clicks ≥ posture floor`, or `orders = 0 AND spend ≥ 2 × break-even-CPA`). Only candidates come back — typically single digits — no matter how many campaigns exist. Break-even-CPA (price × target_ACOS) comes from the product catalog / `strategy.md`; join it in SQL or apply it to the returned rows. Column/view names live in `om-amazon-ads-reference` → `supabase-schema.md`.
+- **Chunk by ASIN only if a week ever returns a large candidate set** (e.g. onboarding a new ASIN with fresh AUT waste): process one ASIN's candidates → log → next; never hold the whole account's raw performance at once. At steady state a single query covers the property.
+
 ## Run sequence (draft)
 1. Inbox cycle first (`lx-paperclip-inbox-cycle`); a comment/task wake is handled, not the weekly mandate.
 2. On the weekly tick: idempotency check (a run dated this week already logged? → close); open the dated run issue; check out.
 3. Resolve wiring; read context — `strategy.md` (targets), `learnings.md`, own `decision-log.md`, and recent `PosTgt` entries (avoid conflicts), autonomy from `client.md`.
-4. Pull the week-window search-term / target performance from Supabase (respect the ~1-day lag).
+4. Pull the week-window waste **candidates** from Supabase with a single pushed-down aggregate query per posture (see *Reading at scale* — filter to threshold-breaching rows in SQL; never scan full inventories; chunk by ASIN only if the candidate set is large). Respect the ~1-day lag.
 5. Apply the waste thresholds → candidate negatives (keywords + ASINs), excluding anything still settling or pending graduation.
 6. Add negative-exact entries in the correct campaigns within autonomy; **escalate** anything beyond the band (per the inbox cycle — never `blocked`).
 7. **Verify** via the Ads API; **document** every decision in the per-property `decision-log.md` using the shared envelope (`om-amazon-optimization` → *Decision-log contract*), tagged `NegTgt`; on a no-change week write one dated `RUN — no action` marker.
