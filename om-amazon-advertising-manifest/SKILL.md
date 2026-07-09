@@ -23,6 +23,7 @@ Phase 1 covers **Sponsored Products**; Sponsored Brands and Sponsored Display ar
 1. A campaign normally contains one ad group (the default "Anzeigengruppe 1").
 2. A campaign normally advertises exactly one ASIN.
 3. Each ASIN normally has at least one Sponsored Products campaign in each strategy — Own Brand (MRK), Competitor (WTB), Generic (GEN), and Auto (AUT). Higher-priority products may carry more campaigns (see §3, *Match type and goal*).
+4. A campaign advertises its ASIN through **both of the seller's SKUs** for that ASIN — the FBM SKU and its FBA twin `<sku>-fba` (where present) — as **two product ads created by SKU** (`productIdType = SKU`), never a single ASIN-level ad. Advertising by SKU keeps each own-offer explicit and preserves separate FBM/FBA coverage and measurement; an ASIN-level ad collapses the two, cedes control of which fulfilment serves, and on a shared ASIN can leak spend to whoever holds the Buy Box. The FBM SKU is authoritative for priority; the FBA twin mirrors it (product catalog / `strategy.md`).
 
 ---
 

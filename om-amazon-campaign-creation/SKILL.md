@@ -12,7 +12,7 @@ This skill assembles complete, ready-to-launch **Sponsored Products** campaigns 
 **Doctrine is not restated here.** The *why* and the *rules* (strategy split, R/P pairing, naming, negation, head-term ownership) live in `om-amazon-advertising-manifest`; the *API contract* (objects, fields, limits, errors) lives in `om-amazon-ads-reference`. This skill is the *procedure* that obeys them. Read both before building.
 
 ## What this skill covers
-- Sponsored Products only (Phase 1): campaign, ad group, product ad (the ASIN), keywords, product/category targets, and the negation web.
+- Sponsored Products only (Phase 1): campaign, ad group, product ads (both SKUs — FBM + FBA twin, by SKU; manifest §1), keywords, product/category targets, and the negation web.
 - The four-strategy build per ASIN — MRK / WTB / GEN / AUT — with the correct match-type/goal pairing (manifest §3).
 - Applying the campaign naming convention with sanitization (manifest §6).
 - Establishing the negation web at creation (manifest §4–§5).
@@ -64,7 +64,7 @@ For one ASIN you build a **set** of campaigns (baseline = one per strategy). Eac
 ```
 1. Campaign        (state = PAUSED; targetingType MANUAL|AUTO; daily budget; dynamic bidding)
 2. Ad Group        (one; defaultBid)
-3. Product Ad      (the ASIN/SKU)
+3. Product Ads     (TWO — the FBM `sku` AND its FBA twin `<sku>-fba`, created by SKU / productIdType=SKU, never the ASIN — manifest §1)
 4. Keywords  and/or Targets   (per strategy — see playbooks)
 5. Negative keywords / negative targets   (the negation web — see below)
 ```
@@ -125,10 +125,10 @@ After seeding the positives above, install the negatives **in the same build**, 
 
 Every campaign name follows:
 ```
-[CLIENT]-[ASIN]-[PRODUCT TITLE]-[CAMPAIGN TYPE]-[STRATEGY]-[MATCH TYPE]-[GOAL]-[NOTE]-LEXA
+[CLIENT]-[ASIN]-[BRAND + PRODUCT NAME]-[CAMPAIGN TYPE]-[STRATEGY]-[MATCH TYPE]-[GOAL]-[NOTE]-LEXA
 ```
 - `CLIENT` = the client's 2-char code from `client.md` (per client, not per account — marketplace/channel are recovered from the data; manifest §6). `CAMPAIGN TYPE` = `SPRO` (Sponsored Products). `STRATEGY` = `MRK`/`WTB`/`GEN`/`AUT`. `MATCH TYPE` = `Broad`/`Exact` (or `Auto` for AUT). `GOAL` = `R`/`P`. `NOTE` = 4-char special note or `NOTE`.
-- **Sanitize the PRODUCT TITLE first, then truncate to 35 chars:** keep only letters (incl. umlauts/ß), numbers, and spaces; strip every other character (especially `-`, `/`, `|`, `.`, `,`). Same rule for `NOTE`.
+- **`BRAND + PRODUCT NAME` = the Sheet `brand` + `product_name` joined, brand first** (single space, e.g. `Windspiel Single Malt Whisky`) — **never drop the brand**. Then normalize to **exactly 35 characters**: sanitize first (keep only letters incl. umlauts/ß, numbers, spaces; strip everything else — especially `-`, `/`, `|`, `.`, `,`), then **truncate if longer, pad if shorter** per the exact length/padding rule in manifest §6. Same sanitize rule for `NOTE`.
 - This name is **load-bearing for reporting** — the ASIN is parsed back out of the 2nd field for the ASIN-join (no `asin` column in the ad data, see `supabase-schema.md`). A malformed name silently drops the campaign out of ASIN-level reporting. Validate the name parses before creating.
 
 Example: `WI-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-LEXA`
@@ -155,10 +155,10 @@ Example: `WI-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-
 ## Verification before handover
 After all creates succeed, read back via the Ads API (not Supabase — a just-made change isn't ingested yet). Confirm:
 - Every campaign is `PAUSED`, with the intended budget and bidding mode.
-- The full structure exists per campaign: ad group, product ad (correct ASIN), keywords/targets.
+- The full structure exists per campaign: ad group, **both SKU product ads** (FBM `sku` + FBA `<sku>-fba`, `productIdType=SKU` — manifest §1; not a single ASIN ad), keywords/targets.
 - The negation web is present (the static invariant + the head-term negatives).
 - No item is in a rejected/`PROHIBITED` state.
-- Every campaign name parses correctly (ASIN recoverable from field 2).
+- Every campaign name parses correctly (ASIN recoverable from field 2) **and its `BRAND + PRODUCT NAME` field is brand-first and exactly 35 characters** (manifest §6) — a brandless or short name breaks reporting.
 
 Only after this verification pass send the handover. On any unrecognized error or policy rejection: hard stop, surface, do not retry/work around (`common-errors.md`).
 
