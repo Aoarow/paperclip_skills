@@ -148,9 +148,9 @@ Campaigns follow a fixed name structure:
 
 | Field | Format |
 |:--|:--|
-| CLIENT | 2 uppercase characters, **unique per client** (e.g. `WI` = Windspiel, `BI` = Bimmerle). Identifies the client's campaigns in a Lexacore-wide analysis. It does **not** need to encode the account, marketplace, or sales channel: those are recovered from the performance data via `profileId → amazon_ads_raw.profiles` (`countryCode` = marketplace, `accountInfo.type` = seller/vendor, `accountInfo.name`/`id` = account). The code is set per client in `client.md`. *(Field formerly defined per-account; changed 2026-06-15 once the data was confirmed to carry those dimensions.)* |
+| CLIENT | 3 uppercase characters, **unique per client** (e.g. `WIN` = Windspiel, `BIM` = Bimmerle, `LEX` = Lexacore as a client). Identifies the client's campaigns in a Lexacore-wide analysis. It does **not** need to encode the account, marketplace, or sales channel: those are recovered from the performance data via `profileId → amazon_ads_raw.profiles` (`countryCode` = marketplace, `accountInfo.type` = seller/vendor, `accountInfo.name`/`id` = account). The code is set per client in `client.md`. *(Field formerly defined per-account; changed 2026-06-15 once the data was confirmed to carry those dimensions.)* |
 | ASIN | the advertised ASIN |
-| BRAND + PRODUCT NAME | the **brand and product name joined** (Sheet `brand` + `product_name`, brand first, single space — e.g. `Windspiel Premium Dry Gin`), **normalized to exactly 35 characters** — truncate if longer, pad if shorter (see the length rule below). The name must always tie the brand to the product. |
+| BRAND + PRODUCT NAME | the **brand and product name joined** (Sheet `brand` + `product_name`, brand first, single space — e.g. `Windspiel Premium Dry Gin`), **sanitized to a clean, human-readable string** (see the field-safety rule below) — **variable length, no padding, no fixed width**. The name must always tie the brand to the product. |
 | CAMPAIGN TYPE | `SPRO` = Sponsored Products / `SPBR` = Sponsored Brands / `SPDI` = Sponsored Display |
 | STRATEGY | `MRK` = Own Brand / `WTB` = Competitor / `GEN` = Generic / `AUT` = Auto |
 | MATCH TYPE | `Broad` / `Exact` — or `Auto` for AUT campaigns |
@@ -159,16 +159,16 @@ Campaigns follow a fixed name structure:
 | LEXA | fixed marker identifying the campaign as managed by Lexacore |
 
 **Field-safety rules (so the name can be parsed unambiguously):**
-- The BRAND + PRODUCT NAME field may contain **only letters (including umlauts and ß), numbers, and spaces** — plus the padding `_` defined below. All other characters — especially `-`, `/`, `|`, and punctuation such as `.` and `,` — are removed. Sanitize **first**, then normalize the length (next rule).
-- **Exact 35-character length (interim rule, 2026-07-05).** Build the field as **`brand` + a single space + `product_name`** (Master-tab, brand first), sanitize, then make it **always exactly 35 characters**: truncate if longer; if shorter, **pad on the right with `_` (underscore)** until it reaches 35. Uniform length keeps campaign names reliably distinguishable in reporting (position- *and* delimiter-based). `_` is the sole exception to the letters/numbers/spaces rule, reserved for padding: it does **not** clash with the `-` field separator and — unlike trailing spaces — is **not** trimmed by Amazon. *(Width is **35 for now**; a later narrowing to ~30 is planned but is a larger operation — deferred. Half-clean interim overall: Amazon is rolling out a new product-title system; the source and this rule get redone properly then. Strip trailing `_` to recover the display name.)*
+- The BRAND + PRODUCT NAME field may contain **only letters (including umlauts and ß), numbers, and single spaces**. All other characters — especially `-`, `/`, `|`, and punctuation such as `.` and `,` — are removed; then collapse any resulting multiple spaces into one and trim the ends. Removing every `-` from this field is what keeps the campaign name unambiguously parseable: it guarantees the field is a single delimiter-part that can never be mistaken for the ASIN token or a strategy/type code.
+- **Variable length, no padding (rule updated 2026-07-15).** Build the field as **`brand` + a single space + `product_name`** (Master-tab, brand first), then sanitize per the rule above. Keep it at its **natural length — do not pad, do not force a fixed width, do not truncate mid-word**. Reporting parses campaign names purely by delimiter/token anchors — the `B0…` ASIN token and the `SPRO-<STRATEGY>-<MATCHTYPE>-` segment — and **never by character position** (verified 2026-07-15 against both the Supabase reporting views and the portal CSV-import parser), so a uniform width buys nothing and only harms legibility. The only length guard: if the *entire* campaign name would exceed Amazon's campaign-name limit, truncate the product-name portion on a **word boundary**. *(This replaces the former interim rule "exactly 35 characters, pad right with `_`" — the underscore padding is gone.)*
 - The NOTE field follows the base rule (letters/numbers/spaces, no `-` or other separators), so it cannot break the parser.
 
 **Example**
 
 Cleaned campaign name:
-`WI-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-LEXA`
+`WIN-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-LEXA`
 
-(Read as: Client Windspiel — ASIN — brand + product name (`Windspiel` + `London Dry Gin 47 vol 1`) — Sponsored Products — Own Brand — Broad — Research — no special note — Lexacore campaign. Note that the original title's "vol. 1" becomes "vol 1" once the period is removed by the sanitization rule, and the field would then be padded/truncated to exactly 35.)
+(Read as: Client Windspiel — ASIN — brand + product name (`Windspiel` + `London Dry Gin 47 vol 1`) — Sponsored Products — Own Brand — Broad — Research — no special note — Lexacore campaign. Note that the original title's "vol. 1" becomes "vol 1" once the period is removed by the sanitization rule; the field is then kept at its natural length, no padding.)
 
 > **IMPORTANT:** Every campaign must keep this naming pattern. Otherwise campaigns cannot be evaluated by strategy, targeting, goal, etc. in reporting.
 

@@ -19,7 +19,7 @@ The channel-level map for **Amazon**, beneath the Online Marketing department (H
     └── [client]/                                  e.g. Windspiel
         ├── client.md                              WRITE: Human · READ: all
         │     Master data + autonomy_level. Holds the Amazon account block(s):
-        │     CLIENT code (2 chars, per client), Ads profile ID, account ID, marketplace,
+        │     CLIENT code (3 chars, per client), Ads profile ID, account ID, marketplace,
         │     sales channel (seller/vendor), and which property maps to which account.
         │     (No separate _konten/ file — account routing lives here. No secrets.)
         │

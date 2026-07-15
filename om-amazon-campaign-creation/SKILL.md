@@ -128,10 +128,10 @@ Every campaign name follows:
 [CLIENT]-[ASIN]-[BRAND + PRODUCT NAME]-[CAMPAIGN TYPE]-[STRATEGY]-[MATCH TYPE]-[GOAL]-[NOTE]-LEXA
 ```
 - `CLIENT` = the client's 2-char code from `client.md` (per client, not per account — marketplace/channel are recovered from the data; manifest §6). `CAMPAIGN TYPE` = `SPRO` (Sponsored Products). `STRATEGY` = `MRK`/`WTB`/`GEN`/`AUT`. `MATCH TYPE` = `Broad`/`Exact` (or `Auto` for AUT). `GOAL` = `R`/`P`. `NOTE` = 4-char special note or `NOTE`.
-- **`BRAND + PRODUCT NAME` = the Sheet `brand` + `product_name` joined, brand first** (single space, e.g. `Windspiel Single Malt Whisky`) — **never drop the brand**. Then normalize to **exactly 35 characters**: sanitize first (keep only letters incl. umlauts/ß, numbers, spaces; strip everything else — especially `-`, `/`, `|`, `.`, `,`), then **truncate if longer, pad if shorter** per the exact length/padding rule in manifest §6. Same sanitize rule for `NOTE`.
+- **`BRAND + PRODUCT NAME` = the Sheet `brand` + `product_name` joined, brand first** (single space, e.g. `Windspiel Single Malt Whisky`) — **never drop the brand**. Then sanitize (keep only letters incl. umlauts/ß, numbers, spaces; strip everything else — especially `-`, `/`, `|`, `.`, `,`; collapse multiple spaces, trim) per manifest §6 — **variable length, no padding, no fixed width**. Removing every `-` is what keeps the field unambiguously parseable. Same sanitize rule for `NOTE`.
 - This name is **load-bearing for reporting** — the ASIN is parsed back out of the 2nd field for the ASIN-join (no `asin` column in the ad data, see `supabase-schema.md`). A malformed name silently drops the campaign out of ASIN-level reporting. Validate the name parses before creating.
 
-Example: `WI-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-LEXA`
+Example: `WIN-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE-LEXA`
 
 ---
 
@@ -158,7 +158,7 @@ After all creates succeed, read back via the Ads API (not Supabase — a just-ma
 - The full structure exists per campaign: ad group, **both SKU product ads** (FBM `sku` + FBA `<sku>-fba`, `productIdType=SKU` — manifest §1; not a single ASIN ad), keywords/targets.
 - The negation web is present (the static invariant + the head-term negatives).
 - No item is in a rejected/`PROHIBITED` state.
-- Every campaign name parses correctly (ASIN recoverable from field 2) **and its `BRAND + PRODUCT NAME` field is brand-first and exactly 35 characters** (manifest §6) — a brandless or short name breaks reporting.
+- Every campaign name parses correctly (ASIN recoverable from field 2) **and its `BRAND + PRODUCT NAME` field is brand-first, sanitized, and `-`-free** (manifest §6) — a `-` left inside this field breaks the parser; a missing brand is a naming defect to avoid (the reported brand itself comes from the `products` join on the ASIN, not from the name).
 
 Only after this verification pass send the handover. On any unrecognized error or policy rejection: hard stop, surface, do not retry/work around (`common-errors.md`).
 

@@ -40,7 +40,7 @@ n8n does **not** create Drive folders. You build the scaffold yourself via the G
 
 ## Step 1 — Determine client & property
 
-1. **Client code** — each client has a code that is **exactly two letters** (uppercase, e.g. `RG` for Reiseglueck), assigned once and reused for all their projects. This length is a hard convention — never 3+ letters. Reuse it if the client's `client.md` already has one; otherwise assign a fitting two-letter code and record it in `client.md`.
+1. **Client code** — each client has a code that is **exactly three uppercase characters** (e.g. `RGB` for Reiseglück Bergstraße, `WIN` for Windspiel, `BIM` for Bimmerle, `LEX` for Lexacore as a client), assigned once and reused for all their projects. This length is a hard convention — always exactly 3 characters, never 2. Reuse it if the client's `client.md` already has one; otherwise assign a fitting three-character code and record it in `client.md`. *(Firm-wide 2→3 character migration, 2026-07-15.)*
 2. **Property slug** — take it from the issue (domain, dots → underscores, mirroring `lexacore_ai` / `lexacore_de`).
 3. **New vs. existing client** — check by name whether the client folder + `client.md` already exist under the client root:
    - **New client** → create the full folder skeleton + draft `client.md` (Steps 2–3).
@@ -111,7 +111,7 @@ Then open **GATE 1 as a Paperclip board approval linked to this issue** (`POST /
 
 ## Step 6 — Paperclip project
 
-Create a Paperclip project **`om-<CODE>-<channel>`** (Google → `om-<CODE>-goog`, e.g. `om-RG-goog`) and nest this project's operational issues in it. Mirrors the Amazon convention (`om-WI-amz`).
+Create a Paperclip project **`om-<CODE>-<channel>`** (Google → `om-<CODE>-goog`, e.g. `om-RGB-goog`) and nest this project's operational issues in it. Mirrors the Amazon convention (`om-WIN-amz`). `<CODE>` is the client's 3-uppercase-character code (see the CLIENT field in `om-amazon-advertising-manifest` §6).
 
 ## Step 7 — Sub-agents (after Gate 1) → Gate 2
 
