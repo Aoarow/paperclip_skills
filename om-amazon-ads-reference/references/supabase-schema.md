@@ -39,7 +39,7 @@ All three carry the same metric block (per `reportDate`): `impressions`, `clicks
 | `…keywords_report_stream_daily` (≈242) | profile × date × ad group × keyword | `keywordId`, `keyword`, `matchType` (`BROAD`/`EXACT`), `adGroupName`, `campaignName` |
 | `…targets_report_stream_daily` (≈201) | profile × date × ad group × target | `keywordId`, `keyword`, `targeting`, `keywordType` (`TARGETING_EXPRESSION` / `TARGETING_EXPRESSION_PREDEFINED`) |
 
-**These are AD-attributed sales** — the basis for **ACOS** (`cost / sales`), the in-loop control metric. They are **not** total sales: **TACOS** needs total revenue from `public.sales_data` (monthly, manual for now → automated via SP-API in Phase 2). Do not compute TACOS from these columns.
+**These are AD-attributed sales** — the basis for **ACOS** (`cost / sales`), the in-loop control metric. They are **not** total sales: **TACOS** needs total revenue, which since 2026-07-16 comes from the **SP-API sales layer** (see below). Do not compute TACOS from these columns — read `agent_reads.<prefix>_tacos_daily`, which already joins spend to total revenue.
 
 **Metric formulas** (pick one attribution window consistently — `7d` is the usual default): ACOS = `cost / sales7d`; ROAS = `sales7d / cost`; CTR = `clicks / impressions`; CVR = `purchases7d / clicks`; CPC = `cost / clicks`. Guard divide-by-zero.
 
@@ -56,7 +56,7 @@ Until path 2 exists, the `public` views rely on path 1 — so a campaign that vi
 
 - **`products`** — `id` (uuid), `company_id` (uuid), `sku`, `product_name`, `brand`, `asin`. **`asin` is the join key.** (Note: this is leaner than the target `products.csv` in Drive, brief §5 — the Drive catalog is the decided truth; this table is the DB mirror used for the customer frontend.)
 - **`companies`** — `id`, `name`.
-- **`sales_data`** — total sales (for TACOS, Phase 2 / monthly). Not yet wired to the ads data.
+- **`sales_data`** — **legacy** monthly total sales (manual CSV import, `product_id` × `report_month` × `sales_channel`). **Superseded for TACOS** by the SP-API sales layer below (daily, per ASIN, automated). Still the monthly reporting table; a roll-up from the daily layer is planned. Do not use it for in-loop decisions.
 
 ## `public` bridge views + `agent_reads.*` agent views (BUILT 2026-06-22 · scoped 2026-07-07)
 
@@ -65,6 +65,24 @@ Derived views resolve the ID-type mismatch, parse ASIN from the campaign name, j
 - **Infrastructure views (`public.*`, `service_role`-only — NOT for agents):** `public.amazon_sp_campaign_daily` / `amazon_sp_keyword_daily` / `amazon_sp_target_daily` + helper `amazon_products_by_asin`. `security_invoker`, readable only by `service_role`; used for build/verification, not by agents.
 - **Agent views (`agent_reads.<prefix>_*` — READ THESE):** each property has its own tenant-isolated, SELECT-only views. Windspiel = `agent_reads.wi_sp_campaign_daily` / `wi_sp_keyword_daily` / `wi_sp_target_daily` / `wi_products_by_asin` (same columns as the `public` views). They are `security_definer`, **hard-filtered to the property's Ads `profileId`**, so other tenants in the same DB are invisible. A dedicated **SELECT-only** role (`amazon_ro_<property>`, e.g. `amazon_ro_windspiel`) reads only these — no writes, no other tenant, no raw-table access.
 - **Never** query `public.amazon_sp_*` or `amazon_ads_raw.*` from an agent — they are **denied** to the agent role. The connection (Supabase session pooler) + wrapper `~/.supabase-ro/q.sh "<SQL>"` are documented in the property's `data-sources.md`.
+
+## SP-API sales & traffic — the total-revenue source (LIVE 2026-07-16)
+
+Total (organic **+** ad) revenue per ASIN per day, from the **Selling Partner API**. This is the missing half of TACOS: the ad report streams answer *"what did advertising sell"*; this answers *"what did the ASIN sell in total"*.
+
+- **Source:** SP-API Reports, `GET_SALES_AND_TRAFFIC_REPORT` (`reportOptions: dateGranularity=DAY, asinGranularity=CHILD`), **Brand Analytics** role, marketplace DE.
+- **Report quirk that bites:** the report returns `salesAndTrafficByDate` (all ASINs summed) and `salesAndTrafficByAsin` (whole range summed) as **two separate sections** — there is **no date × ASIN cross-tab**. Daily per-ASIN rows therefore require **one report request per day**, reading the `byAsin` section. This is why the pull loops over days rather than requesting a range.
+- **Freshness — do not trust the newest days.** Amazon delivers a day with ~1–2 days' lag and **restates it for ~72 h** (cancellations, late attribution). The pull re-fetches a **rolling 7-day window** and upserts, so a day converges to Amazon's final figure over several runs. **Treat the most recent ~2 days as provisional.**
+- **Landing table `public.amazon_sales_traffic_daily`** (`service_role` only — **NOT for agents**). Grain: `company_id` × `marketplace_id` × `date` × `child_asin` (unique key). Columns: `parent_asin`, `child_asin`, `sku`, `ordered_product_sales` + `ordered_product_sales_currency`, `units_ordered`, `total_order_items`, `sessions`, `page_views`, `buy_box_percentage`, `unit_session_percentage`, `fetched_at`.
+  > **Sales are ASIN-level, not SKU-level:** an ASIN's FBM and FBA offers are **collapsed into one row**. Do not expect a fulfilment split here (unlike `products`, which carries both the FBM row and its `-fba` twin — join on the FBM row, `sku NOT LIKE '%-fba'`).
+
+- **Agent views (READ THESE):**
+  - **`agent_reads.<prefix>_sales_daily`** — raw daily sales/traffic rows, tenant-filtered (`sales`, `units_ordered`, `sessions`, `page_views`, `buy_box_percentage`, …).
+  - **`agent_reads.<prefix>_tacos_daily`** — **the metric to use.** Per ASIN × day: `sales_day`, `spend_day`, `clicks`, `ad_sales_7d`, rolling `sales_7d` / `spend_7d` / `sales_30d` / `spend_30d`, plus **`tacos_7d`** / **`tacos_30d`**, joined to `product_name` + `priority`.
+  - Windspiel = `agent_reads.wi_sales_daily` / `wi_tacos_daily`. Same `security_definer` + `amazon_ro_<property>` SELECT-only model as the ad views.
+
+- **TACOS convention:** `tacos_* = spend ÷ total sales`, a **ratio** (`0.10` = 10 %), **NULL when sales = 0** — identical convention to `acos_7d`. Rolling windows are **date-based** (calendar days, not row counts), so gaps in the data do not silently shift the window.
+- **ACOS vs TACOS — why both:** ACOS divides by **ad-attributed** sales, TACOS by **total** revenue. An ASIN can show a NULL/harmless ACOS and a terrible TACOS — spend with zero attributed sales, measured against real organic revenue. That blind spot is exactly what TACOS closes; the target is **10 % TACOS** (`strategy.md`).
 
 ## Security — RLS state (surface, do not auto-fix)
 
