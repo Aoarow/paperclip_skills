@@ -82,7 +82,20 @@ Total (organic **+** ad) revenue per ASIN per day, from the **Selling Partner AP
   - Windspiel = `agent_reads.wi_sales_daily` / `wi_tacos_daily`. Same `security_definer` + `amazon_ro_<property>` SELECT-only model as the ad views.
 
 - **TACOS convention:** `tacos_* = spend ÷ total sales`, a **ratio** (`0.10` = 10 %), **NULL when sales = 0** — identical convention to `acos_7d`. Rolling windows are **date-based** (calendar days, not row counts), so gaps in the data do not silently shift the window.
-- **ACOS vs TACOS — why both:** ACOS divides by **ad-attributed** sales, TACOS by **total** revenue. An ASIN can show a NULL/harmless ACOS and a terrible TACOS — spend with zero attributed sales, measured against real organic revenue. That blind spot is exactly what TACOS closes; the target is **10 % TACOS** (`strategy.md`).
+- **ACOS vs TACOS — why both:** ACOS divides by **ad-attributed** sales, TACOS by **total** revenue. An ASIN can show a NULL/harmless ACOS and a terrible TACOS — spend with zero attributed sales, measured against real organic revenue. That blind spot is what TACOS is *for*.
+
+> ### ⚠️ TACOS is OBSERVATIONAL ONLY (decided 2026-07-16 — do not improvise past this)
+> TACOS is available for **reporting, analysis, and surfacing observations to humans**. It does **not**
+> drive decisions. The in-loop control metric remains **ACOS** (G1 bidding, `om-amazon-optimization`).
+>
+> **Do not** change a bid, negate a term, graduate a target, pause/enable anything, or move a budget
+> because of `tacos_7d` / `tacos_30d` — no matter how bad the number looks. A high TACOS is a finding to
+> **report**, not a trigger to act on. The `strategy.md` 10 % TACOS figure is a **reporting** target and
+> carries no in-loop authority.
+>
+> *Whether and how TACOS may move a decision is an open rule question, deliberately deferred by Alexander.
+> Until that rule exists in the rule set, treat TACOS as read-only context. If TACOS seems to demand an
+> action, that is an escalation to the human — not an action.*
 
 ## Security — RLS state (surface, do not auto-fix)
 
