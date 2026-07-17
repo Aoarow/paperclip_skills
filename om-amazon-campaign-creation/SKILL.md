@@ -33,7 +33,7 @@ If a request asks for any of the above, stop and hand back with a clear note tha
 ## Inputs — read before building
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
-| product catalog (Supabase `public.products`, synced from the Google Sheet) | the ASIN(s): `asin`, `sku`, `product_name`, `brand`, `marketplace`, `category`, `stock_status`, and **`priority`** (the traffic light → build depth, manifest §8) | READ |
+| product catalog (Supabase, synced from the Google Sheet; agents read the property's scoped view — see `data-sources.md`) | the ASIN(s): `asin`, **`sku`** (FBM) + **`fba_sku`** (the twin — both needed for the dual-SKU product ads, manifest §1), `product_name`, `brand`, `marketplace`, `category`, and **`priority`** (the traffic light → build depth, manifest §8). **Not** `stock_status` — always empty by design (stock is live, per-SKU; it comes from the Ads API, see pre-flight 2). | READ |
 | `client.md` | the 2-char `CLIENT` code, autonomy context, the Amazon account block(s) (Ads profile ID, account ID, marketplace, sales channel) and which property maps to which account | READ (human-owned) |
 | `strategy.md` | which products to push, the **head-term ownership map**, starting-bid intent, dynamic-bidding posture | READ (never write) |
 | `budget.csv` | the per-product/campaign daily budget (sacred, human-owned) | READ (human-owned) |
@@ -46,8 +46,8 @@ If a request asks for any of the above, stop and hand back with a clear note tha
 ## Pre-flight checklist
 Run before issuing a single create. Skipping these is the most common source of failed/duplicated builds.
 
-1. **Profile & account resolved** — the `profileId`, account, and marketplace from the Amazon account block in `client.md` (the property maps to one account); the 2-char `CLIENT` code is known.
-2. **ASIN confirmed and advertisable** — exists in the product catalog (Supabase), `status = active`, **`stock_status = in_stock`** (never advertise out-of-stock). Buy-box gating is Phase 2 (SP-API) — schema-only now. *(New ASIN not yet synced from the Sheet? trigger the sync first, or read the Sheet for that one product.)*
+1. **Profile & account resolved** — the `profileId`, account, and marketplace from the Amazon account block in `client.md` (the property maps to one account); the `CLIENT` code (manifest §6) is known.
+2. **ASIN + SKUs confirmed advertisable — ask the Ads API, not the catalog.** The ASIN exists in the product catalog (Supabase) with `status = active`; then verify **each SKU you will advertise** (manifest §1: the FBM SKU + its FBA twin) **live against the Ads API** — the per-SKU eligibility / delivery status is the authoritative signal. **Do not gate on `stock_status` from the catalog:** stock is a live, per-SKU property, the Sheet deliberately does not carry it (decision 2026-07-17), so the column is always empty — gating on it would be a check against nothing. A SKU returning **`NOT_BUYABLE`** (e.g. zero stock on that fulfilment) is **not a reason to skip the build**: build per doctrine, but **name the affected SKU explicitly in the handover** so the human knows that half will not serve until the offer is fixed. *(Precedent: B0F9Y3ZSQ7 — a zero-stock FBM offer silently killed an entire ASIN-level build for 12 days; per-SKU ads surfaced it immediately.)* *(New ASIN not yet synced from the Sheet? trigger the sync first, or read the Sheet for that one product.)*
 3. **Budget decided** — per-product/campaign daily budget present in `budget.csv` (human-owned). At €0, stop and escalate (budget is sacred).
 4. **Strategy known** — `strategy.md` says whether this ASIN is a focus/hero or side product (drives baseline vs. expanded build) and carries the **head-term ownership map**.
 5. **Head-term ownership checked** — for this ASIN's brand: which head terms does this ASIN own, and which does it *not* own (→ those become negatives here). See manifest §5.
@@ -168,8 +168,9 @@ Only after this verification pass send the handover. On any unrecognized error o
 - **Creating campaigns `ENABLED`.** Violates the handover rail. Always `PAUSED`.
 - **Skipping the negation web at creation.** Then terms serve in multiple strategies and attribution is dirty from day one — back-filling later is painful.
 - **Bidding the head term on a non-owning ASIN.** Self-competition; the owning ASIN loses velocity (manifest §5). Negate it instead.
-- **Advertising an out-of-stock ASIN.** Wastes spend and hurts rank. Check `stock_status`.
-- **Malformed campaign name.** Drops the campaign from ASIN-level reporting. Sanitize-then-truncate; validate the parse.
+- **Trusting the catalog for stock.** `stock_status` is always empty (stock is live and per-SKU; the Sheet does not carry it). Check **per-SKU advertisability against the Ads API** instead (pre-flight 2) and flag any `NOT_BUYABLE` SKU in the handover.
+- **Building one ASIN-level product ad instead of the two SKU ads.** It hides the offer-level truth: a dead SKU makes the ad silently never serve while the API still reports the campaign as delivering (B0F9Y3ZSQ7 — 12 days, zero impressions, no error anywhere). Per-SKU ads surface it as `NOT_BUYABLE` (manifest §1).
+- **Malformed campaign name.** Drops the campaign from ASIN-level reporting. Sanitize per manifest §6; validate the parse.
 - **Duplicates from a re-run.** No natural idempotency — pre-read by name first.
 - **Firing all creates at once.** Trips the rate limiter; chunk and serialize, honour `429` + `Retry-After`.
 - **Inventing bid numbers.** Bids/posture are policy inputs — read them, record them, don't bake guesses into the skill.

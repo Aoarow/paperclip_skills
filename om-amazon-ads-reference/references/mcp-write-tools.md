@@ -7,7 +7,7 @@ How agents **execute** changes on a live Amazon profile. Reads stay on Supabase 
 - MCP server name in the runtime: **`amazon-ads`** (Codex `[mcp_servers.amazon-ads]`, streamable HTTP, EU endpoint `https://advertising-ai-eu.amazon.com/mcp`).
 - **Fixed Account Context:** the property's `profileId` is pinned in the connection headers (`Amazon-Ads-AI-Account-Selection-Mode: FIXED` + `Amazon-Advertising-API-Scope: <profileId>`). The connection can therefore touch **only that one property** — an agent cannot reach another advertiser. Because the account is fixed in the header, tool calls generally do **not** need an account/profile argument.
 - Auth (LWA bearer) is refreshed automatically out-of-band; agents never handle tokens.
-- **Tool access is allow-listed** at the config level (`enabled_tools`). Tools not on the list are not callable — this is a hard floor *beneath* the autonomy bands, not a substitute for them. **Delete and account/user-admin tools are permanently excluded.**
+- **Tool access is allow-listed** at the config level (`enabled_tools`). Tools not on the list are not callable — this is a hard floor *beneath* the autonomy bands, not a substitute for them. **Account/manager/user-admin tools are permanently excluded.** Of the delete tools, **only `campaign_management-delete_target` is enabled** (human decision 2026-07-09, for the negative-targeting lane); `delete_campaign` / `delete_ad_group` / `delete_ad` / `delete_ad_association` remain excluded.
 
 ## Tool map (skill action → MCP tool → verify)
 
@@ -21,13 +21,15 @@ Tools are self-describing: read each tool's MCP **input schema** (its declared p
 | **Graduate a winner** to Exact-Profit (+ negate-exact in source, one move §4) — `om-amazon-positive-targeting` | `campaign_management-create_target` (positive in Exact-Profit) **and** `campaign_management-create_target` (negative-exact in source) | `campaign_management-query_target` |
 | **Head-term ownership** cross-ASIN negation §5 — `om-amazon-positive-targeting` | `campaign_management-create_target` (negative-exact on sibling ASINs) | `campaign_management-query_target` |
 | **Waste negative** (term/ASIN) — `om-amazon-negative-targeting` | `campaign_management-create_target` (negative-exact keyword / negative product target) | `campaign_management-query_target` |
+| **Remove a negative / a stray target** (incl. the on-remove invariant; match-type change = delete + re-create) — `om-amazon-negative-targeting` | `campaign_management-delete_target` (the **only** enabled delete tool) | `campaign_management-query_target` |
 | **Create a campaign** (PAUSED) — `om-amazon-account-management` | `campaign_management-create_singleshot_sp_campaign` (one-shot) **or** `create_campaign` + `create_ad_group` + `create_ad` + `create_target` | `campaign_management-query_campaign` |
 | **Read for verify only** (the data read of record is Supabase) | `query_campaign` / `query_ad_group` / `query_target` / `query_ad`; `account_management-query_advertiser_account`; `reporting-*` | — |
 
 ## Binding rules
 
 - **Verify every write** by reading it back with the matching `query_*` tool — **via the MCP, not Supabase** (a just-made change is not yet ingested; this is the Optimizer run-sequence "verify via Ads API" step).
-- **Never call a delete tool** (`campaign_management-delete_*`) or any account/manager/user-admin tool. These are excluded at the config level and are out of every agent's remit; a real need escalates to a human.
+- **⚠️ `update_campaign` REPLACES, it does not patch.** Fields you omit are **reset to their defaults, not preserved**: an update sent with only `{campaignId, name}` **silently flips a `PAUSED` campaign to `ENABLED`**. **Always send `state` explicitly** — plus every other field you intend to keep — on *every* `update_campaign` call, and read the campaign back to confirm the state you expected. This is a live guardrail hazard, not a cosmetic one: a rename or a budget tweak can activate a campaign that doctrine requires to stay paused (manifest / the PAUSED handover). *(Learned the hard way 2026-07-17: a rename enabled three freshly built PAUSED campaigns.)* Treat any other `update_*` tool as replace-semantics until proven otherwise — read its input schema and send the full intended state.
+- **Delete tools:** only `campaign_management-delete_target` is callable, and only for the negative-targeting lane (removing a negative / the on-remove invariant). **Never call any other delete tool** (`delete_campaign` / `delete_ad_group` / `delete_ad` / `delete_ad_association`) or any account/manager/user-admin tool — they are excluded at the config level and out of every agent's remit; a real need escalates to a human.
 - **Pausing/enabling a whole campaign** (`update_campaign_state`) and **raising the property budget** are escalate-only regardless of tool availability (see `om-autonomy-levels`). New campaigns are handed over **PAUSED**.
 - Stay within the autonomy band (`om-autonomy-levels`) and the bidding/targeting rulesets (`om-amazon-optimization`, the targeting skills) — the MCP makes an action *possible*, the rulesets decide whether it is *allowed*.
 
