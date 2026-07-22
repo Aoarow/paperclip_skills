@@ -40,9 +40,26 @@ A department may have **channel-level** detail maps beneath it. For Online Marke
 
 Two kinds of folders exist in this Drive:
 
-- **Fixed infrastructure folders** – knowledge base, onboarding queue, client root. They exist exactly once and never move. Address them by their **Folder-ID**; it is robust and avoids path-navigation errors. Always call the Drive MCP with the Folder-ID, e.g.
-  `mcp_gdrive_gdrive_list_folder({ url: "1o2VNGERtm2iN3YYiH7RCx0IdhHvL8494" })`
+- **Fixed infrastructure folders** – knowledge base, onboarding queue, client root. They exist exactly once and never move. Address them by their **Folder-ID**; it is robust and avoids path-navigation errors. *(In the day-to-day you rarely need to list a folder at all: the File-IDs of the documents you work on are already in your bundle's Location-binding table — read them directly with `~/.gdrive-ro/read.sh <FileID>`, see below. Do **not** assume a `mcp_gdrive_*` Drive MCP tool exists in your runtime; it generally does not.)*
 - **Schematic client folders** – they follow a repeating pattern instantiated per client, so every client has *different* Folder-IDs below the client level. Do **not** hard-code IDs for these. Navigate **by name**, starting from the fixed client-root Folder-ID.
+
+## Reading and writing a Drive file (the mechanism)
+
+You address every Drive document by its **File-ID** (it is listed in your bundle's *Location binding* table and in the property's `data-sources.md`). To read or write the *content*, use the host-wide ops helpers — the service-account credentials live inside them; you only pass the File-ID. **Jump straight to these; do not hunt for credentials, a Drive MCP, `curl`, or a local mirror.**
+
+- **Read** any file (Markdown, CSV, native Google Doc/Sheet; Shared-Drive files included):
+  `~/.gdrive-ro/read.sh <FileID>` → prints the content to stdout.
+- **Write** a native text file (e.g. `decision-log.md`, `learnings.md`). Drive has **no native append**, so read-modify-write: read the current content, build the new *full* content (prepend your dated entry), pipe it back, then read it back to confirm your entry **and** the prior history both survived:
+  ```
+  cur="$(~/.gdrive-ro/read.sh <FileID>)"
+  printf '%s\n\n%s' "$new_entry" "$cur" | ~/.gdrive-ro/write.sh <FileID>
+  ```
+
+Facts these helpers encode (so you never re-derive them):
+- They already pass the **Shared-Drive** flag and branch Google-Doc/Sheet export vs. native download. There is nothing left for you to reconstruct.
+- The service account can **read and update** documents but **cannot delete, trash, or move** them — a deliberate safety floor. Never plan a delete; append/overwrite only.
+- **Reads are live.** If a helper errors, that is a real access problem → escalate the blocker; **never fall back to a stale local mirror** or a file you found by searching the workspace (that is how stale-data decisions happen).
+- Honour the WRITE/READ annotations in the department map: `client.md` and `budget.csv` are human-owned → read-only. Never write a file you only have read access to.
 
 ## Maintenance
 
