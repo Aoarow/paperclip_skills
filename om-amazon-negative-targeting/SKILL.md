@@ -40,7 +40,10 @@ A search term/ASIN is a **waste candidate** when it spends without paying back. 
 
 **2. Money trigger (fires below the click-floor too).** **0 orders AND spend ≥ 2 × the product's break-even CPA** (= price × target_ACOS; e.g. €30 product × 18 % = €5.40 → negate at ≈ €11 spent with nothing back).
 
-Two guards:
+**Object scope — negate what you did *not* choose.** Negation removes *discovered* traffic: customer **search terms** (from the Search Term report) and **irrelevant ASIN targets** matched by broad/auto. A **deliberately-placed positive keyword** — every keyword in a MRK/GEN/WTB manual campaign is one the property chose — is **never a waste-negation candidate.** Negating a GEN campaign's own category head term (e.g. `aperitivo` in the Aperitivo GEN campaign) blinds the campaign to its reason to exist. A positive keyword that wastes is a **bid problem, not a negation problem**: the fix is a lower bid or a pause, both the Optimizer's levers. Until the Search Term report is ingested and negation can operate at the query level, any keyword-level money-trigger candidate that is a positive keyword is **routed to the Optimizer as a bid-down handoff** — log it under the shared decision-log envelope tagged `NegTgt` with `handoff → Optimizer: bid-down` plus the baseline metrics, and add **no** negative. The Optimizer reads these handoffs on its next run.
+
+Three guards:
+- **Object scope (above):** never negate a chosen positive keyword or a head/category-defining term (`strategy.md` §3 head-term ownership) — route it to the Optimizer as a bid-down handoff instead.
 - **Don't kill terms still in the settling window** (they haven't had a fair chance) — coordinate with the Optimizer's settling state via `decision-log.md`.
 - **Respect the on-remove invariant** (manifest §4): never orphan a negative that should later flow back into discovery; and don't negate a term the positive Targeter is about to graduate (check recent `PosTgt` log entries to avoid the two agents fighting).
 
@@ -58,7 +61,7 @@ The property may carry **20–50+ campaigns**, but waste is rare: at pilot budge
 2. On the weekly tick: idempotency check (a run dated this week already logged? → close); open the dated run issue; check out.
 3. Resolve wiring; read context — `strategy.md` (targets), `learnings.md`, own `decision-log.md`, and recent `PosTgt` entries (avoid conflicts), autonomy from `client.md`.
 4. Pull the week-window waste **candidates** from Supabase with a single pushed-down aggregate query per posture (see *Reading at scale* — filter to threshold-breaching rows in SQL; never scan full inventories; chunk by ASIN only if the candidate set is large). Respect the ~1-day lag.
-5. Apply the waste thresholds → candidate negatives (keywords + ASINs), excluding anything still settling or pending graduation.
+5. Apply the waste thresholds → candidate negatives (**discovered search terms + irrelevant ASINs**), excluding anything still settling or pending graduation. A wasteful **positive keyword** never becomes a negative — log it as a **bid-down handoff to the Optimizer** (see *Object scope*), do not negate it.
 6. Add negative-exact entries in the correct campaigns within autonomy; **escalate** anything beyond the band (per the inbox cycle — never `blocked`).
 7. **Verify** via the Ads API; **document** every decision in the per-property `decision-log.md` using the shared envelope (`om-amazon-optimization` → *Decision-log contract*), tagged `NegTgt`; on a no-change week write one dated `RUN — no action` marker.
 8. Close-out self-check per the inbox cycle (nothing left `in_progress`/`blocked`; history preserved).
