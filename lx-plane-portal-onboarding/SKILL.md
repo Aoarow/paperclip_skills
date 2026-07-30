@@ -7,7 +7,9 @@ description: Create the Plane project + standard onboarding task list for a new 
 
 Run this as part of onboarding a new client, **after** their Drive/Paperclip setup, to give them the shared task board that shows up in the lexacore.de client portal (tab "Projekt"). Client and Lexacore both see and work the same tasks there; Lexacore's completed prep work is shown, the client sees a short to-do list.
 
-This is a small, self-contained building block. It does **not** touch the Drive/Paperclip/agent side (that is `om-google-new-projects-workflow`).
+This is a small, self-contained building block. It does **not** provision the
+Drive property scaffold or Paperclip agent set; that is
+`om-onboarding-new-projects`.
 
 ## What it produces
 

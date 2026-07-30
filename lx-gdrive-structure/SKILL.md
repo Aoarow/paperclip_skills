@@ -40,8 +40,17 @@ A department may have **channel-level** detail maps beneath it. For Online Marke
 
 Two kinds of folders exist in this Drive:
 
-- **Fixed infrastructure folders** – knowledge base, onboarding queue, client root. They exist exactly once and never move. Address them by their **Folder-ID**; it is robust and avoids path-navigation errors. *(In the day-to-day you rarely need to list a folder at all: the File-IDs of the documents you work on are already in your bundle's Location-binding table — read them directly with `~/.gdrive-ro/read.sh <FileID>`, see below. Do **not** assume a `mcp_gdrive_*` Drive MCP tool exists in your runtime; it generally does not.)*
-- **Schematic client folders** – they follow a repeating pattern instantiated per client, so every client has *different* Folder-IDs below the client level. Do **not** hard-code IDs for these. Navigate **by name**, starting from the fixed client-root Folder-ID.
+- **Fixed infrastructure folders** – knowledge base, onboarding queue, and the flat
+  `01_Kunden & Projekte` root. They exist exactly once and are addressed by
+  **Folder-ID**. *(In day-to-day work, the File-IDs of bound documents are normally
+  already in the agent bundle's Location-binding table — read them directly with
+  `~/.gdrive-ro/read.sh <FileID>`. Do **not** assume a `mcp_gdrive_*` tool exists.)*
+- **Customer folders** – Twenty's `driveFolderId` is the only authoritative customer
+  anchor. Open the folder by that ID; never identify it by name, status prefix, or path.
+  Folder names are human-facing display and may change from `00_` to `01_` to `02_`.
+  Discover children below the anchored customer folder and bind operational agents to
+  their stable folder/file IDs. Never hard-code one customer's IDs into a reusable
+  skill.
 
 ## Reading and writing a Drive file (the mechanism)
 

@@ -111,7 +111,7 @@ define what the work is.
 file read is **not** data. I never infer a document's contents from the issue thread,
 prior comments, a decision log, or memory. If a read returns empty or errors, the file is
 *missing* — I re-check the canonical path from `lx-gdrive-onlinemarketing` (e.g.
-`budget.csv` lives under `02_Projektdurchführung & Assets/[Channel]/[property]/`, not in
+`budget.csv` lives under `02_Projektdurchführung/[Channel]/[property]/`, not in
 some older location), and if it is still absent I treat it as a missing **required**
 document and halt/escalate per Step 6, rather than substituting a remembered or
 thread-mentioned value. This is exactly how a wrong budget slips in — a €900 figure

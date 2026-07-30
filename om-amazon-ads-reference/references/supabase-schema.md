@@ -54,7 +54,7 @@ Until path 2 exists, the `public` views rely on path 1 — so a campaign that vi
 
 ## `public` join targets
 
-- **`products`** — `id` (uuid), `company_id` (uuid), `sku`, `product_name`, `brand`, `asin`. **`asin` is the join key.** (Note: this is leaner than the target `products.csv` in Drive, brief §5 — the Drive catalog is the decided truth; this table is the DB mirror used for the customer frontend.)
+- **`products`** — `id` (uuid), `company_id` (uuid), `sku`, `product_name`, `brand`, `asin`. **`asin` is the join key.** (This database mirror is intentionally leaner than the human-owned per-property Google Sheet `<property> Produkte`; its canonical columns live in `om-onboarding-new-projects/references/amazon.md`.)
 - **`companies`** — `id`, `name`.
 - **`sales_data`** — **legacy** monthly total sales (manual CSV import, `product_id` × `report_month` × `sales_channel`). **Superseded for TACOS** by the SP-API sales layer below (daily, per ASIN, automated). Still the monthly reporting table; a roll-up from the daily layer is planned. Do not use it for in-loop decisions.
 

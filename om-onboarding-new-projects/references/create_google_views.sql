@@ -12,9 +12,10 @@
 --   one daily transfer has landed.
 --
 -- SUBSTITUTE two placeholders (do a plain find-replace) before running:
---   {{PROPERTY}}  BigQuery-safe property slug: the domain with EVERY non-alphanumeric
---                 char turned into "_" (dots AND hyphens). BigQuery object names cannot
---                 contain "-" or ".".  Examples:
+--   {{PROPERTY}}  BigQuery-safe technical alias derived from the exact human-defined
+--                 property name: turn EVERY non-alphanumeric character into "_"
+--                 (including dots and hyphens). This alias never renames the property.
+--                 BigQuery object names cannot contain "-" or ".". Examples:
 --                     lexacore.ai              -> lexacore_ai
 --                     reiseglueck-bergstrasse.de -> reiseglueck_bergstrasse_de
 --   {{CID}}       the client's raw numeric Google Ads customer id, digits only, no dashes

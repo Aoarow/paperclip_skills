@@ -34,7 +34,7 @@ If a request asks for any of the above, stop and hand back with a clear note tha
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
 | product catalog (Supabase, synced from the Google Sheet; agents read the property's scoped view — see `data-sources.md`) | the ASIN(s): `asin`, **`sku`** (FBM) + **`fba_sku`** (the twin — both needed for the dual-SKU product ads, manifest §1), `product_name`, `brand`, `marketplace`, `category`, and **`priority`** (the traffic light → build depth, manifest §8). **Not** `stock_status` — always empty by design (stock is live, per-SKU; it comes from the Ads API, see pre-flight 2). | READ |
-| `client.md` | the 2-char `CLIENT` code, autonomy context, the Amazon account block(s) (Ads profile ID, account ID, marketplace, sales channel) and which property maps to which account | READ (human-owned) |
+| `client.md` | the 3-char `CLIENT` code, autonomy context, the Amazon account block(s) (Ads profile ID, account ID, marketplace, sales channel) and which property maps to which account | READ (human-owned) |
 | `strategy.md` | which products to push, the **head-term ownership map**, starting-bid intent, dynamic-bidding posture | READ (never write) |
 | `budget.csv` | the per-product/campaign daily budget (sacred, human-owned) | READ (human-owned) |
 | `data-sources.md` | the property's data wiring (Supabase tables/connection, ingestion workflow); points to the account in `client.md` rather than repeating its IDs | READ |
@@ -127,7 +127,7 @@ Every campaign name follows:
 ```
 [CLIENT]-[ASIN]-[BRAND + PRODUCT NAME]-[CAMPAIGN TYPE]-[STRATEGY]-[MATCH TYPE]-[GOAL]-[NOTE]-LEXA
 ```
-- `CLIENT` = the client's 2-char code from `client.md` (per client, not per account — marketplace/channel are recovered from the data; manifest §6). `CAMPAIGN TYPE` = `SPRO` (Sponsored Products). `STRATEGY` = `MRK`/`WTB`/`GEN`/`AUT`. `MATCH TYPE` = `Broad`/`Exact` (or `Auto` for AUT). `GOAL` = `R`/`P`. `NOTE` = 4-char special note or `NOTE`.
+- `CLIENT` = the client's exactly 3-character uppercase code from `client.md` (per client, not per account — marketplace/channel are recovered from the data; manifest §6). `CAMPAIGN TYPE` = `SPRO` (Sponsored Products). `STRATEGY` = `MRK`/`WTB`/`GEN`/`AUT`. `MATCH TYPE` = `Broad`/`Exact` (or `Auto` for AUT). `GOAL` = `R`/`P`. `NOTE` = 4-char special note or `NOTE`.
 - **`BRAND + PRODUCT NAME` = the Sheet `brand` + `product_name` joined, brand first** (single space, e.g. `Windspiel Single Malt Whisky`) — **never drop the brand**. Then sanitize (keep only letters incl. umlauts/ß, numbers, spaces; strip everything else — especially `-`, `/`, `|`, `.`, `,`; collapse multiple spaces, trim) per manifest §6 — **variable length, no padding, no fixed width**. Removing every `-` is what keeps the field unambiguously parseable. Same sanitize rule for `NOTE`.
 - This name is **load-bearing for reporting** — the ASIN is parsed back out of the 2nd field for the ASIN-join (no `asin` column in the ad data, see `supabase-schema.md`). A malformed name silently drops the campaign out of ASIN-level reporting. Validate the name parses before creating.
 
