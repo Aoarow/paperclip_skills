@@ -26,6 +26,20 @@ account block owns the non-secret routing facts:
 Never derive account routing from the property name. Keep credentials in the secret
 store, never in `client.md` or `data-sources.md`.
 
+The advertising **profile ID** is the technical counterpart of this routing and is per
+marketplace, not per account: one seller account has a different profileId in DE, FR, UK
+and so on. Read the correct one from `amazon_ads_raw.profiles` and record it in
+`data-sources.md`; never reuse another customer's or another marketplace's profile.
+
+Agents reach the Amazon Ads MCP through a per-tenant registry on the operations server,
+`~/.amazon-ads-mcp/tenants.json`, which maps each customer to its profile ID and each
+Paperclip agent to its customer and tool allowlist. `render-mcp-configs.py` stamps the
+freshly refreshed token, the customer's profile scope, and the allowlist into every
+registered agent's Codex config on each token refresh. Onboarding a customer therefore
+adds one `tenants` entry plus one `agents` entry per agent — never a hand edit of an
+agent's `config.toml`, which the next refresh would overwrite. An agent absent from the
+registry simply has no Amazon MCP access.
+
 The shared folder/file scaffold may be created if the property and account reference are
 unambiguous even while live identifiers are pending. Live ingestion and agent activation
 require all routing identifiers.
@@ -58,6 +72,14 @@ Supabase, not directly from the Sheet; ASIN is the join key. Before calling the 
 operational, verify that its mapping accepts every canonical column. Escalate a mapping
 mismatch instead of silently dropping a field.
 
+Each customer gets its own copy of the sync workflow (`<CLIENT>-amz Produkt-Sheet →
+Supabase`), because a Google Sheets trigger binds to one document. The transform node is
+identical in every copy: it carries a `TENANT` constant plus a `TENANTS` registry holding
+each customer's `company_id`, and refuses to run when `TENANT` does not match the
+workflow name. Clone the workflow, change that one line, keep the guard. Without it a
+forgotten edit writes one customer's catalogue under another customer's `company_id`,
+which no downstream check would catch.
+
 ## Data prerequisites
 
 Record confirmed technical wiring in `data-sources.md` without duplicating the account
@@ -77,6 +99,30 @@ facts from `client.md`. Before declaring `activation-ready`, require:
 Customer-provided raw exports land in the customer-level `04_Kundeneingang`; do not
 create a parallel per-property intake tree. `data-sources.md` records their stable IDs or
 ingestion destinations.
+
+## Agent read layer
+
+Ads ingestion is account-agnostic: it walks every profile the token can see, so a new
+customer's raw rows usually exist before onboarding starts. What must be created is the
+customer's own scoped read layer.
+
+Run [create_amazon_views.sql](create_amazon_views.sql) with `{{PREFIX}}` (short tenant
+alias, e.g. `bi`), `{{PROFILE_ID}}` and `{{COMPANY_ID}}` substituted. It creates the six
+`agent_reads.<prefix>_*` views the agents read, plus the GRANT block for the customer's
+read-only role. Record the view names in `data-sources.md`.
+
+Isolation rules, all load-bearing:
+
+- The views are owned by `postgres` and are not `security_invoker`, so they read the raw
+  tables with definer rights and bypass RLS. The hard-coded profile/company filter inside
+  each view is therefore the only thing separating customers. Never widen one, and never
+  add a view without one.
+- Grant each tenant role only its own views, explicitly. Do not use
+  `ALTER DEFAULT PRIVILEGES` on `agent_reads`: a blanket default grants every future
+  customer's views to whichever role it names. That exact trap was live until 2026-08-01,
+  when Bimmerle's `bi_*` views were silently granted to `amazon_ro_windspiel`.
+- After provisioning, verify as the tenant role that each view returns exactly one
+  `company_id` and that `public.products` is denied.
 
 ## Paperclip project and agents
 
