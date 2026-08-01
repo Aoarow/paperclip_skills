@@ -130,6 +130,39 @@ skills deliberately resolve the read path from there rather than hard-coding it.
 
 Gate before creating agents: `~/.supabase-ro/q.sh <tenant> --check` must exit zero.
 
+### Customers with several properties on one account
+
+A customer whose brands share one seller account also shares one advertising profile, so
+the tenant-level views span every brand. Property agents must not see sibling brands —
+head-term arbitration and cross-property budget belong to the Account Manager alone.
+
+Add a second, narrower layer for those customers. Build each property view on top of the
+tenant view and narrow it by brand through an INNER JOIN on the brand-filtered product
+master, so the column contract stays defined once:
+
+```sql
+CREATE OR REPLACE VIEW agent_reads.<tenant>_<prop>_products_by_asin AS
+  SELECT * FROM agent_reads.<tenant>_products_by_asin WHERE brand = '<Brand>';
+
+CREATE OR REPLACE VIEW agent_reads.<tenant>_<prop>_sp_campaign_daily AS
+  SELECT c.* FROM agent_reads.<tenant>_sp_campaign_daily c
+    JOIN agent_reads.<tenant>_<prop>_products_by_asin p ON p.asin = c.asin;
+```
+
+Repeat for the keyword, target, sales and TACOS views. Then provision one role per
+property, declaring the scope so the self-test knows what to assert:
+
+```bash
+~/.supabase-ro/provision-tenant-db-user.sh <tenant>_<prop> <tenant>_<prop> property
+```
+
+The Account Manager keeps the tenant-level scope (`property` vs `tenant` in the env file);
+a tenant scope legitimately spans all brands, a property scope must be exactly one, and
+`--check` enforces that difference. Because the property views join through the product
+master, an advertised ASIN missing from the catalogue is invisible to its property agents
+— it still shows up in the Account Manager's tenant view, which is where such gaps get
+noticed. Keep the product master complete.
+
 Isolation rules, all load-bearing:
 
 - The views are owned by `postgres` and are not `security_invoker`, so they read the raw
