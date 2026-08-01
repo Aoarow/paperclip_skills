@@ -220,12 +220,12 @@ WINDOW w7  AS (PARTITION BY b.asin ORDER BY b.date RANGE BETWEEN '6 days'::inter
        w30 AS (PARTITION BY b.asin ORDER BY b.date RANGE BETWEEN '29 days'::interval PRECEDING AND CURRENT ROW);
 
 -- Tenant read-only role -------------------------------------------------------
--- Run once per customer. Set the password out of band (never in a transcript or ticket):
---   ALTER ROLE amazon_ro_{{PREFIX}} WITH PASSWORD '<generated on the server>';
--- NOBYPASSRLS is deliberate: the role must never be able to read the raw tables directly.
+-- Name the role after the tenant key, not the view prefix, so it reads unambiguously:
+-- amazon_ro_<tenant>. NOBYPASSRLS is deliberate: the role must never reach the raw
+-- tables directly.
 --
--- CREATE ROLE amazon_ro_{{PREFIX}} LOGIN NOBYPASSRLS;
--- GRANT USAGE ON SCHEMA agent_reads TO amazon_ro_{{PREFIX}};
+-- CREATE ROLE amazon_ro_<tenant> LOGIN NOBYPASSRLS;
+-- GRANT USAGE ON SCHEMA agent_reads TO amazon_ro_<tenant>;
 -- GRANT SELECT ON
 --     agent_reads.{{PREFIX}}_products_by_asin,
 --     agent_reads.{{PREFIX}}_sp_campaign_daily,
@@ -233,8 +233,19 @@ WINDOW w7  AS (PARTITION BY b.asin ORDER BY b.date RANGE BETWEEN '6 days'::inter
 --     agent_reads.{{PREFIX}}_sp_target_daily,
 --     agent_reads.{{PREFIX}}_sales_daily,
 --     agent_reads.{{PREFIX}}_tacos_daily
---   TO amazon_ro_{{PREFIX}};
+--   TO amazon_ro_<tenant>;
 --
--- VERIFY afterwards, as the role, that every view returns only this customer:
---   SELECT count(DISTINCT company_id) FROM agent_reads.{{PREFIX}}_sp_campaign_daily;  -- 1
---   SELECT count(*) FROM public.products;                                             -- denied
+-- Credentials: nobody chooses or types this password. On the operations server run
+--   ~/.supabase-ro/provision-tenant-db-user.sh <tenant> {{PREFIX}}
+-- It generates a random password, writes ~/.supabase-ro/<tenant>.env (mode 600), and
+-- prints only the PostgreSQL SCRAM-SHA-256 verifier. Apply that verbatim:
+--   ALTER ROLE amazon_ro_<tenant> WITH LOGIN PASSWORD '<printed verifier>';
+-- The verifier is a salted, iterated hash and cannot be used to authenticate, so it is
+-- safe in a ticket or an agent tool call; the plaintext never leaves that host. The same
+-- command rotates an existing role.
+--
+-- VERIFY as the role — this is a hard gate, not a formality:
+--   ~/.supabase-ro/q.sh <tenant> --check
+-- It asserts exactly one company_id and one profile_id in the campaign view, that
+-- public.products is denied, and that every other tenant's views are denied. Non-zero
+-- exit means isolation is broken; do not proceed to agent creation.

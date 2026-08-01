@@ -111,6 +111,25 @@ alias, e.g. `bi`), `{{PROFILE_ID}}` and `{{COMPANY_ID}}` substituted. It creates
 `agent_reads.<prefix>_*` views the agents read, plus the GRANT block for the customer's
 read-only role. Record the view names in `data-sources.md`.
 
+Then provision the role's credentials on the operations server:
+
+```bash
+~/.supabase-ro/provision-tenant-db-user.sh <tenant> <prefix>
+```
+
+Nobody chooses or types this password. The script generates it, writes
+`~/.supabase-ro/<tenant>.env` (mode 600), and prints only the SCRAM verifier to apply
+with `ALTER ROLE`. The plaintext never leaves that host, so the credential cannot be
+leaked through a chat, a ticket, or an agent transcript — and onboarding a customer stays
+two commands rather than a manual trip through the database console. The same command
+rotates an existing tenant.
+
+Agents then query through `~/.supabase-ro/q.sh <tenant> "<SQL>"`, each logging in as its
+own role. Record the exact invocation in the property's `data-sources.md`; the specialist
+skills deliberately resolve the read path from there rather than hard-coding it.
+
+Gate before creating agents: `~/.supabase-ro/q.sh <tenant> --check` must exit zero.
+
 Isolation rules, all load-bearing:
 
 - The views are owned by `postgres` and are not `security_invoker`, so they read the raw
