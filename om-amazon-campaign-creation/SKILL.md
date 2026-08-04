@@ -171,22 +171,28 @@ revised allocation.
 ### The monthly cap does not live on the campaigns
 
 Do **not** try to make the sum of daily budgets equal the monthly cap — that is what produces
-starved campaigns. The daily budgets are deliberately overdrawn relative to the cap; the cap is
-enforced one level up, as a **portfolio spend limit** (set by a human in the Amazon UI; the MCP
-has no portfolio tools).
+starved campaigns. The daily budgets are deliberately overdrawn relative to the cap.
 
-Two consequences agents must internalise:
-- **"Nominal daily budgets exceed the monthly cap" is not a finding** and not a throttling
-  trigger. Report actual spend against `budget.csv`; do not reason from the budget ceilings.
-- **Until a portfolio limit exists, the property is effectively uncapped.** Agents cannot close
-  that gap themselves: `update_campaign_budget` is excluded from every toolset, campaign
-  pausing is escalate-only, and the optimizer runs once a day — a campaign can overspend for a
-  full day before anyone looks. Say so plainly in the handover instead of assuming a safety net.
+**The monthly cap for every agent is the figure in the property's `budget.csv`.** That is the
+one number to measure against, report against, and escalate on. There is no second budget
+source, and **"nominal daily budgets exceed the monthly cap" is not a finding** and not a
+throttling trigger — report actual spend against `budget.csv` instead of reasoning from the
+ceilings.
+
+Whether a client also has a **hard technical limit** behind the agents — an Amazon portfolio
+spend limit, a central billing arrangement, or nothing at all — is a per-client decision made by
+humans, and it varies. **Do not read it, do not reason about it, and do not treat its absence as
+a defect.** Where it exists it is a silent net, not an input.
+
+**What agents must say plainly in a handover:** they cannot enforce a budget themselves.
+`update_campaign_budget` is excluded from every toolset, pausing a campaign is escalate-only, and
+the optimizer runs once a day — so a campaign can overspend for a full day before anyone looks.
+State that limitation rather than assuming someone else's safety net will catch it.
 
 *(Learned 2026-08-04, Wood Stork: an approved 0,50 EUR/day campaign could not be created at all
 and stopped the whole build; the replacement figures of 1,00–1,10 EUR/day were then technically
-valid but commercially pointless, and the human raised them to 10–30 EUR/day the same day with
-the cap moved to the portfolio.)*
+valid but commercially pointless, and the human raised them to 10–30 EUR/day the same day. The
+monthly cap stayed where it was — in `budget.csv`.)*
 
 ---
 
