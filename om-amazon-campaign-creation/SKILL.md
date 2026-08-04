@@ -150,18 +150,43 @@ at creation is the only cheap moment.)*
 
 ---
 
-## Minimum daily budget
+## Starting budget
 
-**Amazon rejects any campaign daily budget below 1,00 EUR** with
-`FIELD_VALUE_IS_BELOW_MINIMUM_LIMIT` — including campaigns created `PAUSED`. A strategy that
-allocates less than that per campaign is not buildable as written.
+**A daily budget is starting capital, not a savings account.** A campaign created at or near
+the floor never wins enough auctions to accumulate the clicks that make it assessable — the
+pilot then measures its own starvation rather than the market. Starting too small is a real
+failure mode, not a safe default.
 
-Do **not** silently substitute a higher budget: that is a budget increase and outside the
-authorization. Escalate for a revised allocation, or for a reduced campaign count that fits
-the property budget at 1,00 EUR per campaign.
+**House rule: start in the 10–30 EUR/day range per campaign**, scaled to the ASIN's role, not
+to an even split of the monthly cap. The monthly cap is enforced somewhere else (see below).
 
-*(Learned 2026-08-04, Wood Stork: an approved 0,50 EUR/day campaign could not be created at
-all; the whole build stopped until the human authorization was amended.)*
+**Amazon's hard floor is 1,00 EUR/day.** Anything less is rejected with
+`FIELD_VALUE_IS_BELOW_MINIMUM_LIMIT` — including campaigns created `PAUSED`. If a strategy
+allocates below that, it is not buildable as written.
+
+**Never silently substitute a different budget in either direction.** Both a higher and a lower
+figure than the authorization says are budget decisions, not build details. Escalate for a
+revised allocation.
+
+### The monthly cap does not live on the campaigns
+
+Do **not** try to make the sum of daily budgets equal the monthly cap — that is what produces
+starved campaigns. The daily budgets are deliberately overdrawn relative to the cap; the cap is
+enforced one level up, as a **portfolio spend limit** (set by a human in the Amazon UI; the MCP
+has no portfolio tools).
+
+Two consequences agents must internalise:
+- **"Nominal daily budgets exceed the monthly cap" is not a finding** and not a throttling
+  trigger. Report actual spend against `budget.csv`; do not reason from the budget ceilings.
+- **Until a portfolio limit exists, the property is effectively uncapped.** Agents cannot close
+  that gap themselves: `update_campaign_budget` is excluded from every toolset, campaign
+  pausing is escalate-only, and the optimizer runs once a day — a campaign can overspend for a
+  full day before anyone looks. Say so plainly in the handover instead of assuming a safety net.
+
+*(Learned 2026-08-04, Wood Stork: an approved 0,50 EUR/day campaign could not be created at all
+and stopped the whole build; the replacement figures of 1,00–1,10 EUR/day were then technically
+valid but commercially pointless, and the human raised them to 10–30 EUR/day the same day with
+the cap moved to the portfolio.)*
 
 ---
 
