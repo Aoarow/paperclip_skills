@@ -64,7 +64,7 @@ For one ASIN you build a **set** of campaigns (baseline = one per strategy). Eac
 ```
 1. Campaign        (state = PAUSED; MANUAL vs AUTO via autoCreationSettings — see below;
                     daily budget >= 1.00 EUR; dynamic bidding)
-2. Ad Group        (one; defaultBid)
+2. Ad Group        (one; defaultBid; NO name — see naming convention)
 3. Product Ads     (TWO — the FBM `sku` AND its FBA twin `<sku>-fba`, created by SKU / productIdType=SKU, never the ASIN — manifest §1)
 4. Keywords  and/or Targets   (per strategy — see playbooks)
 5. Negative keywords / negative targets   (the negation web — see below)
@@ -122,6 +122,31 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 > broken MCP translator, then as an unexplained `targetingType=MANUAL` — costing five agent
 > runs and two issues. Verification shortcut: every healthy AUT campaign reads back
 > `autoCreationSettings: {autoCreateTargets: true}`; check that first.)*
+
+---
+
+## Ad group naming — leave it to Amazon
+
+**Do not name the ad group.** Omit `name` in `create_ad_group` and let Amazon assign its own
+default (`Anzeigengruppe 1` on a German marketplace, `Ad group 1` on an English one).
+
+The naming convention below governs **campaign** names only. Because the structure is
+1 campaign = 1 ad group = 1 ASIN, an ad group name carries no information the campaign name does
+not already carry — so the house practice is to leave the default in place. This is not a
+preference invented here: of the 92 Sponsored Products ad groups across the Windspiel and
+Bimmerle accounts, 87 carry Amazon's default name, and every single one built before 2026-08-04
+does.
+
+**Never copy the campaign name onto the ad group.** It reads as a second, competing convention
+in the Amazon UI and makes lists harder to scan.
+
+*(Learned 2026-08-04, Wood Stork: four of five newly built campaigns got ad groups named like
+`BIM-B0GXWD674S-GEN-Broad-R` because this skill said nothing about ad group names — the agent
+filled the gap by analogy to the campaign convention. The fifth omitted the name and got
+`Anzeigengruppe 1`, matching every other ad group in both accounts. Note that
+`update_ad_group` is deliberately excluded from the agent toolsets, so a wrong ad group name
+cannot be repaired by an agent afterwards — it takes a human in the Amazon UI. Getting it right
+at creation is the only cheap moment.)*
 
 ---
 
