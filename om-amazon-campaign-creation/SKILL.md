@@ -62,7 +62,8 @@ If any check fails, stop and surface the gap — do not invent a workaround.
 For one ASIN you build a **set** of campaigns (baseline = one per strategy). Each campaign follows the same object sequence (`om-amazon-ads-reference/sp-object-model.md`):
 
 ```
-1. Campaign        (state = PAUSED; targetingType MANUAL|AUTO; daily budget; dynamic bidding)
+1. Campaign        (state = PAUSED; MANUAL vs AUTO via autoCreationSettings — see below;
+                    daily budget >= 1.00 EUR; dynamic bidding)
 2. Ad Group        (one; defaultBid)
 3. Product Ads     (TWO — the FBM `sku` AND its FBA twin `<sku>-fba`, created by SKU / productIdType=SKU, never the ASIN — manifest §1)
 4. Keywords  and/or Targets   (per strategy — see playbooks)
@@ -84,21 +85,58 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 ## Per-strategy playbooks (manifest §2–§3)
 
 ### MRK — Own Brand
-- **Campaign:** `targetingType = MANUAL`. **Keyword-targeted.** Default goal **Exact-Profit** (brand terms are known, high-intent); a Broad-Research sibling may be added to discover brand variants.
+- **Campaign:** manual targeting — i.e. **leave `autoCreationSettings.autoCreateTargets` unset/false**. **Keyword-targeted.** Default goal **Exact-Profit** (brand terms are known, high-intent); a Broad-Research sibling may be added to discover brand variants.
 - **Keywords:** own-brand terms + variants (from `strategy.md` / brand knowledge).
 - **Negatives:** standard waste negatives (e.g. "cheap", "case") as seeded in `strategy.md`.
 
 ### WTB — Competitor
-- **Campaign:** `targetingType = MANUAL`. **Keyword *and* product (ASIN) targeted** — competitor brand terms *and* competitor ASINs (product targeting expression `asin="…"`, see `match-types.md`). Default Exact-Profit; optional Broad-Research for new competitor variations/ASINs.
+- **Campaign:** manual targeting (`autoCreateTargets` unset/false). **Keyword *and* product (ASIN) targeted** — competitor brand terms *and* competitor ASINs (product targeting expression `asin="…"`, see `match-types.md`). Default Exact-Profit; optional Broad-Research for new competitor variations/ASINs.
 - **Targets:** competitor keywords + competitor ASIN targets.
 
 ### GEN — Generic
-- **Campaign:** `targetingType = MANUAL`. **Keyword-targeted** (generic product terms), optionally category targeting. **Uses both** Broad-Research (mine generic queries) and Exact-Profit (proven generics) — the largest discovery space.
+- **Campaign:** manual targeting (`autoCreateTargets` unset/false). **Keyword-targeted** (generic product terms), optionally category targeting. **Uses both** Broad-Research (mine generic queries) and Exact-Profit (proven generics) — the largest discovery space.
 - **Keywords:** generic category terms. **Head-term rule (§5):** bid the brand's head term here **only if this ASIN owns it**; otherwise use long-tail generics and add the head term as a negative (see negation web).
 
 ### AUT — Auto
-- **Campaign:** `targetingType = AUTO`. Always **Auto-Research** (goal `R`, match token `Auto`). Amazon's four auto clauses (`close-match`, `loose-match`, `substitutes`, `complements`) — each separately biddable.
+- **Campaign: set `autoCreationSettings.autoCreateTargets = true` at creation.** Always **Auto-Research** (goal `R`, match token `Auto`). Amazon's four auto clauses (`close-match`, `loose-match`, `substitutes`, `complements`) — each separately biddable.
 - **No manual keywords.** Its whole job is discovery; it feeds MRK/WTB/GEN via the positive Targeter.
+
+> **⚠️ There is no `targetingType` field in `campaign_management-create_campaign`.**
+> The only thing that makes a Sponsored Products campaign an Auto campaign is
+> **`autoCreationSettings.autoCreateTargets: true`**, set **at creation time**. Omit it and you
+> get a MANUAL campaign wearing an AUT name — Amazon then rejects every AUTO/THEME target on
+> it, correctly, and the ad group reads back as `AD_GROUP_INCOMPLETE` with zero targets.
+>
+> **This cannot be repaired afterwards.** `update_campaign` does not carry
+> `autoCreationSettings` in its schema, and Amazon does not allow a campaign's targeting type
+> to change after creation. The only fix is to build a new campaign — and since
+> `delete_campaign` is excluded from every toolset, the malformed one stays behind as a
+> PAUSED empty shell for a human to remove in the Amazon UI.
+>
+> **Preferred path for AUT: `campaign_management-create_singleshot_sp_campaign`**, which knows
+> `themeTarget` and wires the four clauses in one call.
+>
+> *(Learned the hard way 2026-08-04, Wood Stork `226256803039857`: this skill previously said
+> `targetingType = AUTO`, a field the tool does not have. The agent could not comply, built a
+> MANUAL campaign, and the resulting target failures were misdiagnosed twice — first as a
+> broken MCP translator, then as an unexplained `targetingType=MANUAL` — costing five agent
+> runs and two issues. Verification shortcut: every healthy AUT campaign reads back
+> `autoCreationSettings: {autoCreateTargets: true}`; check that first.)*
+
+---
+
+## Minimum daily budget
+
+**Amazon rejects any campaign daily budget below 1,00 EUR** with
+`FIELD_VALUE_IS_BELOW_MINIMUM_LIMIT` — including campaigns created `PAUSED`. A strategy that
+allocates less than that per campaign is not buildable as written.
+
+Do **not** silently substitute a higher budget: that is a budget increase and outside the
+authorization. Escalate for a revised allocation, or for a reduced campaign count that fits
+the property budget at 1,00 EUR per campaign.
+
+*(Learned 2026-08-04, Wood Stork: an approved 0,50 EUR/day campaign could not be created at
+all; the whole build stopped until the human authorization was amended.)*
 
 ---
 
