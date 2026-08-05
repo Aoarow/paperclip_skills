@@ -66,6 +66,16 @@ No live changes. Analyze performance, document findings, propose changes as task
 
 **Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; a bid that would breach the **€0.07 floor or the €5.00 hard max-CPC** (knob 5) — to the human via the Account Manager; any change beyond the active level's bands.
 
+> **A permitted lever is not automatically an available lever.** The autonomy level says what an
+> agent *may* do; whether a tool exists for it in that agent's runtime is set separately per agent
+> (`enabled_tools`). On Amazon, several levers this skill permits have historically had **no
+> callable tool** — notably budget reallocation and pausing individual targets, and until
+> 2026-08-05 also bid changes. **Current availability is documented in
+> `om-amazon-ads-reference/references/mcp-write-tools.md`.**
+> If a lever is permitted but not callable: **escalate naming the exact tool id, and never
+> substitute another tool for it.** Do not treat the missing tool as a reason to act outside the
+> band, and do not treat the permission as proof the tool is there.
+
 ## Always escalate (every level)
 Regardless of level, escalate these to the department head:
 - Raising the property's total monthly budget (`budget.csv`).

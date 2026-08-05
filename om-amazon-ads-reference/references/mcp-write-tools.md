@@ -25,6 +25,50 @@ Tools are self-describing: read each tool's MCP **input schema** (its declared p
 | **Create a campaign** (PAUSED) — `om-amazon-account-management` | `campaign_management-create_singleshot_sp_campaign` (one-shot) **or** `create_campaign` + `create_ad_group` + `create_ad` + `create_target` | `campaign_management-query_campaign` |
 | **Read for verify only** (the data read of record is Supabase) | `query_campaign` / `query_ad_group` / `query_target` / `query_ad`; `account_management-query_advertiser_account`; `reporting-*` | — |
 
+## Which levers are actually callable (this differs per agent)
+
+The tool map above lists the **right** tool for each lever. Whether that tool is **callable in
+your runtime** is a separate question: `enabled_tools` is set per agent, and a lever the autonomy
+level permits may have no tool behind it.
+
+**Current state (2026-08-05):**
+
+| Tool | Enabled for |
+| :--- | :--- |
+| `campaign_management-update_target_bid` | **WIN-amz Optimizer only** (Windspiel, Autonomy Standard) |
+| `campaign_management-update_campaign_budget` | nobody |
+| `campaign_management-update_target` (state) | nobody |
+| `campaign_management-update_campaign_state` | nobody |
+
+**If the tool you need is not callable, escalate — never substitute.** Specifically:
+- **delete + re-create is not a bid update.** It destroys the target's history and its
+  performance record, and the engine's maturity rules then treat a proven target as new.
+- **`update_campaign` is not a budget tool.** It has replace semantics and can flip campaign
+  state as a side effect (see the binding rules below).
+- Name the exact missing tool id in the escalation. That is what makes it fixable in one step
+  instead of three rounds. *(This cost the Windspiel property two weeks and seven issues —
+  LEXA-399 through LEXA-412 — where the Optimizer correctly identified a bid cut, the Account
+  Manager correctly approved it, and nobody could execute it. A human finally set the bid by
+  hand. The agents were right to refuse the workaround; the gap was above them.)*
+
+### Bid writes — guardrails (`update_target_bid`)
+
+Now that the tool is live for one agent, the rules around it are binding:
+
+1. **Ceiling from the autonomy level** (`om-autonomy-levels`): Standard **±20 %** per item per
+   run, Extended ±35 %. The engine's maturity step (`om-amazon-optimization` knob 3) applies
+   *within* that ceiling — the effective change is the **smaller** of the two.
+2. **Hard bounds:** never below the **€0.07 floor**, never above the **€5.00 max-CPC**. A bid
+   that would breach either escalates instead.
+3. **Verify after every write** with `campaign_management-query_target` — via the MCP, not
+   Supabase, which has not ingested the change yet. Log the read-back value, not the intended
+   value.
+4. **Settling:** after changing a target's bid, leave it alone for **7 days** unless a hard
+   failure appears. Do not re-cut the next morning because the numbers have not moved yet —
+   they cannot have.
+5. **One reason per change.** Record in `decision-log.md` which measured fact triggered it
+   (clicks, spend, orders, ACOS over which window), the old bid and the read-back new bid.
+
 ## Binding rules
 
 - **Verify every write** by reading it back with the matching `query_*` tool — **via the MCP, not Supabase** (a just-made change is not yet ingested; this is the Optimizer run-sequence "verify via Ads API" step).
