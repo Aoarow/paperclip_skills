@@ -63,9 +63,13 @@ For one ASIN you build a **set** of campaigns (baseline = one per strategy). Eac
 
 ```
 1. Campaign        (state = PAUSED; MANUAL vs AUTO via autoCreationSettings — see below;
-                    daily budget >= 1.00 EUR; dynamic bidding)
+                    daily budget >= 1.00 EUR; dynamic bidding; startDateTime required;
+                    `autoCreationSettings` is MANDATORY in both cases; `costType` is REJECTED)
 2. Ad Group        (one; defaultBid; NO name — see naming convention)
-3. Product Ads     (TWO — the FBM `sku` AND its FBA twin `<sku>-fba`, created by SKU / productIdType=SKU, never the ASIN — manifest §1)
+3. Product Ads     (one per SKU that actually exists, created by SKU / productIdType=SKU,
+                    never the ASIN — manifest §1. Read the FBA sibling from the `fba_sku`
+                    column; NEVER derive it from the FBM SKU. Empty `fba_sku` = no FBA
+                    offer = exactly ONE product ad. See the Dual-SKU box below.)
 4. Keywords  and/or Targets   (per strategy — see playbooks)
 5. Negative keywords / negative targets   (the negation web — see below)
 ```
@@ -85,16 +89,16 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 ## Per-strategy playbooks (manifest §2–§3)
 
 ### MRK — Own Brand
-- **Campaign:** manual targeting — i.e. **leave `autoCreationSettings.autoCreateTargets` unset/false**. **Keyword-targeted.** Default goal **Exact-Profit** (brand terms are known, high-intent); a Broad-Research sibling may be added to discover brand variants.
+- **Campaign:** manual targeting — i.e. send **`autoCreationSettings: {"autoCreateTargets": false}` explicitly**. **Keyword-targeted.** Default goal **Exact-Profit** (brand terms are known, high-intent); a Broad-Research sibling may be added to discover brand variants.
 - **Keywords:** own-brand terms + variants (from `strategy.md` / brand knowledge).
 - **Negatives:** standard waste negatives (e.g. "cheap", "case") as seeded in `strategy.md`.
 
 ### WTB — Competitor
-- **Campaign:** manual targeting (`autoCreateTargets` unset/false). **Keyword *and* product (ASIN) targeted** — competitor brand terms *and* competitor ASINs (product targeting expression `asin="…"`, see `match-types.md`). Default Exact-Profit; optional Broad-Research for new competitor variations/ASINs.
+- **Campaign:** manual targeting (send `autoCreationSettings: {"autoCreateTargets": false}` explicitly). **Keyword *and* product (ASIN) targeted** — competitor brand terms *and* competitor ASINs (product targeting expression `asin="…"`, see `match-types.md`). Default Exact-Profit; optional Broad-Research for new competitor variations/ASINs.
 - **Targets:** competitor keywords + competitor ASIN targets.
 
 ### GEN — Generic
-- **Campaign:** manual targeting (`autoCreateTargets` unset/false). **Keyword-targeted** (generic product terms), optionally category targeting. **Uses both** Broad-Research (mine generic queries) and Exact-Profit (proven generics) — the largest discovery space.
+- **Campaign:** manual targeting (send `autoCreationSettings: {"autoCreateTargets": false}` explicitly). **Keyword-targeted** (generic product terms), optionally category targeting. **Uses both** Broad-Research (mine generic queries) and Exact-Profit (proven generics) — the largest discovery space.
 - **Keywords:** generic category terms. **Head-term rule (§5):** bid the brand's head term here **only if this ASIN owns it**; otherwise use long-tail generics and add the head term as a negative (see negation web).
 
 ### AUT — Auto
@@ -103,9 +107,23 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 
 > **⚠️ There is no `targetingType` field in `campaign_management-create_campaign`.**
 > The only thing that makes a Sponsored Products campaign an Auto campaign is
-> **`autoCreationSettings.autoCreateTargets: true`**, set **at creation time**. Omit it and you
-> get a MANUAL campaign wearing an AUT name — Amazon then rejects every AUTO/THEME target on
-> it, correctly, and the ad group reads back as `AD_GROUP_INCOMPLETE` with zero targets.
+> **`autoCreationSettings.autoCreateTargets: true`**, set **at creation time**.
+>
+> **⚠️⚠️ `autoCreationSettings` is a REQUIRED field — for manual campaigns too.** Leaving it
+> out does not default to manual, it fails the whole call with
+> `object has missing required properties (["autoCreationSettings"])`. Manual campaigns must
+> send `{"autoCreateTargets": false}` explicitly. *(Learned 2026-08-05 building the four
+> Nocciola/Pistaccio campaigns: the first attempt failed on exactly this field, because this
+> file used to say "unset/false".)*
+>
+> **⚠️ `costType` must NOT be sent** to `create_campaign` — it is rejected with
+> `object instance has properties which are not allowed by the schema: ["costType"]`,
+> and the whole call fails without partial effect — nothing is created.
+>
+> Set `autoCreateTargets: true` and you get AUT; set it `false` and you get MANUAL. Set it
+> `false` when you meant AUT and you get a MANUAL campaign wearing an AUT name — Amazon then
+> rejects every AUTO/THEME target on it, correctly, and the ad group reads back as
+> `AD_GROUP_INCOMPLETE` with zero targets.
 >
 > **This cannot be repaired afterwards.** `update_campaign` does not carry
 > `autoCreationSettings` in its schema, and Amazon does not allow a campaign's targeting type
@@ -113,8 +131,15 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 > `delete_campaign` is excluded from every toolset, the malformed one stays behind as a
 > PAUSED empty shell for a human to remove in the Amazon UI.
 >
-> **Preferred path for AUT: `campaign_management-create_singleshot_sp_campaign`**, which knows
-> `themeTarget` and wires the four clauses in one call.
+> **⚠️ Do NOT use `campaign_management-create_singleshot_sp_campaign` for the house build.**
+> It knows `themeTarget` and wires the four clauses in one call, but its schema has **no
+> `state` field** (verified 2026-08-06 against the live tool schema: an oneshotCampaign carries
+> only `campaignName`, `adGroupName`, `autoCreateTargets`, `bid`, `budgets`, `creative`,
+> `marketplaces`, `portfolioId`, `startDateTime`, `target`). It therefore **cannot hand over a
+> PAUSED campaign**, which the house doctrine requires — and it forces an `adGroupName`, which
+> the naming convention says to leave to Amazon.
+> **The safe path is `create_campaign` with an explicit `state: PAUSED`.** The four auto clauses
+> appear by themselves once `autoCreateTargets: true` is set; no `create_target` call is needed.
 >
 > *(Learned the hard way 2026-08-04, Wood Stork `226256803039857`: this skill previously said
 > `targetingType = AUTO`, a field the tool does not have. The agent could not comply, built a
@@ -249,7 +274,10 @@ Example: `WIN-B01EAR7GI2-Windspiel London Dry Gin 47 vol 1-SPRO-MRK-Broad-R-NOTE
 ## Verification before handover
 After all creates succeed, read back via the Ads API (not Supabase — a just-made change isn't ingested yet). Confirm:
 - Every campaign is `PAUSED`, with the intended budget and bidding mode.
-- The full structure exists per campaign: ad group, **both SKU product ads** (FBM `sku` + FBA `<sku>-fba`, `productIdType=SKU` — manifest §1; not a single ASIN ad), keywords/targets.
+- **Every AUT campaign reads back `autoCreationSettings: {autoCreateTargets: true}` and every manual campaign reads back `false`.** This is the cheapest check in the list and the one whose absence has cost the most (see the AUT box above).
+- ⚠️ **`query_target` and `query_ad` paginate.** They return at most 400 items per page plus a `nextToken`; a `maxResults` of 50 silently truncates and makes an incomplete build look complete. Follow `nextToken` to the last page, and scope with `campaignIdFilter.include` — a shared account can hold dozens of campaigns across brands, and yours may not be on page one.
+- The full structure exists per campaign: ad group, **one product ad per SKU that actually exists** (`productIdType=SKU` — manifest §1; never a single ASIN ad), keywords/targets.
+  ⚠️ **How many ads is decided by `fba_sku`, not by a rule of thumb:** a filled `fba_sku` means two ads (FBM + that exact value), an empty one means exactly one. **Never derive the FBA SKU from the FBM SKU** — Bimmerle's 12-packs read `<sku>-12fba` (no hyphen before `fba`), Windspiel's read `<sku>-fba`, and four Don Pasquale ASINs have no FBA offer at all. Deriving it has cost delivery three times (Windspiel `B0F9Y3ZSQ7`, Evermann Theo, Wood Stork).
 - The negation web is present (the static invariant + the head-term negatives).
 - No item is in a rejected/`PROHIBITED` state.
 - Every campaign name parses correctly (ASIN recoverable from field 2) **and its `BRAND + PRODUCT NAME` field is brand-first, sanitized, and `-`-free** (manifest §6) — a `-` left inside this field breaks the parser; a missing brand is a naming defect to avoid (the reported brand itself comes from the `products` join on the ASIN, not from the name).
