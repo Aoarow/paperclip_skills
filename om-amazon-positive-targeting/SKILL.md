@@ -9,7 +9,9 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 
 **Why harvest + negate-in-source is one action:** graduating a term to Exact-Profit *and* negating it in its discovery source (AUT/Broad) is a single logical move (manifest §4 "graduation negatives"). That is why it sits here, not with the negative Targeter.
 
-> **Ruleset DEFINED (2026-06-25).** The **graduation threshold** (*Graduation* below), the **keyword-roster cap** (*The keyword roster*), and AUT's spend cap / graduation-yield framing (`strategy.md` + `om-amazon-optimization`) are all set. The manifest carries the negation *invariants*; the operational *numbers* now live here. **One data dependency remains** (not a threshold): the **Search Term report** is not yet ingested (monthly n8n workflow, brief §13) — until it exists, harvest only from what the keyword/target reports expose, not raw Auto search terms.
+> **Ruleset DEFINED (2026-06-25).** The **graduation threshold** (*Graduation* below), the **keyword-roster cap** (*The keyword roster*), and AUT's spend cap / graduation-yield framing (`strategy.md` + `om-amazon-optimization`) are all set. The manifest carries the negation *invariants*; the operational *numbers* now live here.
+>
+> **Data dependency RESOLVED (2026-08-11).** The **Search Term report** is ingested nightly and readable at `agent_reads.<prefix>_sp_search_term_daily`. Real customer searches are now ordinary rows — including the ones behind AUT campaigns, which book no keywords at all and were previously invisible. Harvesting is no longer confined to promoting existing Broad keywords to Exact; genuine discovery is live.
 
 ## What this skill covers
 - Reading the **Search Term report** and Auto/Broad-Research performance from Supabase.
@@ -65,7 +67,7 @@ Re-assert the property's head-term map each run: each head term stays positive o
 1. Inbox cycle first (`lx-paperclip-inbox-cycle`); a comment/task wake is handled, not the monthly mandate.
 2. On the monthly tick: idempotency check (a harvest dated this month already logged? → close); open the dated run issue; check out.
 3. Resolve wiring; read context — `strategy.md` (head-term map, goals), `learnings.md`, own `decision-log.md`, autonomy from `client.md`.
-4. Pull the **Search Term report** + Auto/Broad-Research performance from Supabase. *(Dependency: the Search Term report is not yet ingested — monthly n8n workflow, brief §13. Until it exists, harvest only from what the keyword/target reports already expose.)*
+4. Pull the **search terms** (`agent_reads.<prefix>_sp_search_term_daily`) + Auto/Broad-Research performance from Supabase. Aggregate over the 90-day window **per search term** before testing the threshold — one term appears once per day per source, so a raw row is not a candidate. Note the archive starts 2026-08-11 (65-day backfill, Amazon's hard limit): until ~November the 90-day look-back is short at the far end, so a borderline term may simply not have had time to prove itself.
 5. Apply the graduation threshold → candidate winners (keywords + ASIN targets). Chunk if the term list is large (rare, monthly → cheap).
 6. For each winner within autonomy: execute the atomic graduation move (add Exact-Profit + negate source + on-add invariant). Escalate anything beyond the band.
 7. Re-assert head-term ownership (cross-ASIN negatives) within autonomy.

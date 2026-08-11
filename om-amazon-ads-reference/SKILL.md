@@ -14,7 +14,7 @@ Load only the file you need (progressive disclosure); do not read them all up fr
 | File | Status |
 |---|---|
 | `references/supabase-schema.md` — the `amazon_ads_raw` tables (catalog + report streams), the camelCase/ID-cast pitfalls, the ASIN-join problem, the `public` join targets, the planned views, and the RLS state. **This is what the agents query for performance, not the Ads API.** | ✅ generated from the live DB (2026-06-15) |
-| `references/report-types.md` — report streams & grains, attribution windows, the 3-day look-back/freshness rule, the Search-Term-report gap (monthly n8n, planned), and not-yet-ingested reports. | ✅ data-grounded |
+| `references/report-types.md` — report streams & grains, attribution windows, the look-back/freshness rule, the **search-term stream** (its fan-out, the AUT caveat, the 65-day backfill limit), and not-yet-ingested reports. | ✅ data-grounded |
 | `references/sp-object-model.md` — SP hierarchy (profile → campaign → ad group → product ad / keyword / target / negatives), fields, states, the MANUAL/AUTO distinction, the write path. | ✅ data-grounded |
 | `references/match-types.md` — keyword match types (broad/phrase/exact), product/category/auto targeting expressions, negative match types, and where each value lives in the data. | ✅ data-grounded |
 | `references/bulk-and-rate-limits.md` — bulk-creation model, throttling/back-off, partial-failure handling. | ✅ grounded in the official Ads API rate-limiting docs (limits are dynamic — no fixed numbers; 429 + `Retry-After`) |

@@ -31,13 +31,16 @@ Report streams use dedup (not plain append) because the Amazon source re-fetches
 
 ## Report streams (daily time-series — the performance source)
 
-All three carry the same metric block (per `reportDate`): `impressions`, `clicks`, `cost`, and **ad-attributed** outcomes at four attribution windows — `sales{1,7,14,30}d`, `purchases{1,7,14,30}d`, `unitsSoldClicks{…}`, plus `…SameSku…` variants (same-ASIN vs. halo sales).
+All four carry the same metric block (per `reportDate`): `impressions`, `clicks`, `cost`, and **ad-attributed** outcomes at four attribution windows — `sales{1,7,14,30}d`, `purchases{1,7,14,30}d`, `unitsSoldClicks{…}`, plus `…SameSku…` variants (same-ASIN vs. halo sales).
 
 | Stream | Grain | Key columns beyond metrics |
 |---|---|---|
 | `…campaigns_report_stream_daily` (≈159) | profile × date × campaign | `campaignId` (bigint), `campaignName`, `campaignStatus`, `campaignBudgetAmount` |
 | `…keywords_report_stream_daily` (≈242) | profile × date × ad group × keyword | `keywordId`, `keyword`, `matchType` (`BROAD`/`EXACT`), `adGroupName`, `campaignName` |
 | `…targets_report_stream_daily` (≈201) | profile × date × ad group × target | `keywordId`, `keyword`, `targeting`, `keywordType` (`TARGETING_EXPRESSION` / `TARGETING_EXPRESSION_PREDEFINED`) |
+| `…search_term_report_stream_daily` (since 2026-08-11) | profile × date × ad group × target × **search term** | `searchTerm`, `keywordId`, `keyword`, `targeting`, and both `keywordType` **and** `matchType` (identical values in this stream) |
+
+**The search-term stream fans out.** Every other stream has one row per *thing we booked*; this one has one row per *thing a customer typed*, so a single keyword yields many rows on the same day. Its key is `(profileId, date, campaignId, adGroupId, keywordId, searchTerm)`. Joining it to the keyword or target stream on `keywordId` alone multiplies the other side's metrics — aggregate the search-term side first, or don't join at all. Details and the AUT caveat: `report-types.md`.
 
 **These are AD-attributed sales** — the basis for **ACOS** (`cost / sales`), the in-loop control metric. They are **not** total sales: **TACOS** needs total revenue, which since 2026-07-16 comes from the **SP-API sales layer** (see below). Do not compute TACOS from these columns — read `agent_reads.<prefix>_tacos_daily`, which already joins spend to total revenue.
 
@@ -63,7 +66,8 @@ Until path 2 exists, the `public` views rely on path 1 — so a campaign that vi
 Derived views resolve the ID-type mismatch, parse ASIN from the campaign name, join to `products`/`companies`, and expose tidy per-day ACOS/ROAS/CTR/CVR at campaign / keyword / target grain.
 
 - **Infrastructure views (`public.*`, `service_role`-only — NOT for agents):** `public.amazon_sp_campaign_daily` / `amazon_sp_keyword_daily` / `amazon_sp_target_daily` + helper `amazon_products_by_asin`. `security_invoker`, readable only by `service_role`; used for build/verification, not by agents.
-- **Agent views (`agent_reads.<prefix>_*` — READ THESE):** each property has its own tenant-isolated, SELECT-only views. Windspiel = `agent_reads.wi_sp_campaign_daily` / `wi_sp_keyword_daily` / `wi_sp_target_daily` / `wi_products_by_asin` (same columns as the `public` views). They are `security_definer`, **hard-filtered to the property's Ads `profileId`**, so other tenants in the same DB are invisible. A dedicated **SELECT-only** role (`amazon_ro_<property>`, e.g. `amazon_ro_windspiel`) reads only these — no writes, no other tenant, no raw-table access.
+- **Agent views (`agent_reads.<prefix>_*` — READ THESE):** each property has its own tenant-isolated, SELECT-only views. Windspiel = `agent_reads.wi_sp_campaign_daily` / `wi_sp_keyword_daily` / `wi_sp_target_daily` / **`wi_sp_search_term_daily`** / `wi_products_by_asin` (same columns as the `public` views). They are `security_definer`, **hard-filtered to the property's Ads `profileId`**, so other tenants in the same DB are invisible. A dedicated **SELECT-only** role (`amazon_ro_<property>`, e.g. `amazon_ro_windspiel`) reads only these — no writes, no other tenant, no raw-table access.
+- **The search-term view** (`<prefix>_sp_search_term_daily`, since 2026-08-11) carries the target-view columns plus **`search_term`**, **`match_type`** and `keyword`, with `asin` / `brand` / `strategy_code` already resolved. Bimmerle additionally has the five per-brand variants (`bi_<brand>_sp_search_term_daily`), each granted to its own `amazon_ro_bimmerle_<brand>` role.
 - **Never** query `public.amazon_sp_*` or `amazon_ads_raw.*` from an agent — they are **denied** to the agent role. **How to read:** every Supabase read goes through the property's scoped read-only wrapper (a `q.sh`-style script, e.g. `~/.supabase-ro/q.sh -tAc "<SQL>"`). Its exact path + the connection detail are in the property's `data-sources.md` — read that first via the Drive helper (`~/.gdrive-ro/read.sh <data-sources File-ID>`, see `lx-gdrive-structure`), then invoke the wrapper. **Do not** use the Amazon-Ads MCP, a Supabase app, or any re-auth flow for reads — the MCP is write-only for agents, and the wrapper needs no interactive auth.
 
 ## SP-API sales & traffic — the total-revenue source (LIVE 2026-07-16)

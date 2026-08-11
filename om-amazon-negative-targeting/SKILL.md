@@ -10,7 +10,9 @@ This skill teaches the **negative Targeter** agent how to stop budget leaking on
 - **Waste negatives (this skill):** irrelevant / non-converting / far-over-target terms and ASINs → add to negative lists so they stop being served.
 - **Graduation negatives (NOT this skill):** a proven winner promoted to Exact-Profit and negated in its discovery source — that is one logical action and lives in `om-amazon-positive-targeting`.
 
-> **Waste-negative ruleset DEFINED (2026-06-25).** Thresholds in *Waste detection* below. Calibrated to be **stricter than a bid-down** (negation is permanent): the zero-conversion click-floor is posture-specific (from each posture's measured CVR), backed by a money trigger. Starting values — expected to tighten with experience and once the Search Term report is ingested (AUT waste lives at the query level, which needs that report).
+> **Waste-negative ruleset DEFINED (2026-06-25).** Thresholds in *Waste detection* below. Calibrated to be **stricter than a bid-down** (negation is permanent): the zero-conversion click-floor is posture-specific (from each posture's measured CVR), backed by a money trigger. Starting values — expected to tighten with experience.
+>
+> **Query-level negation UNLOCKED (2026-08-11).** The Search Term report is ingested nightly (`agent_reads.<prefix>_sp_search_term_daily`), so waste can now be judged on the **actual customer query** rather than only on the booked keyword. This is what makes AUT waste addressable at all.
 
 ## What this skill covers
 - Reading search-term and target performance from Supabase (week window).
@@ -36,11 +38,13 @@ A search term/ASIN is a **waste candidate** when it spends without paying back. 
 | MRK | 32 % | ≥ 6 clicks |
 | GEN | 12.5 % | ≥ 17 clicks |
 | WTB | 7.4 % | ≥ 30 clicks |
-| AUT | 5.3 % | query-level only — needs the Search Term report (a single AUT keyword rarely reaches the floor on pilot budget) |
+| AUT | 5.3 % | ≥ 43 clicks, **query-level only** — apply the floor to the search term, never to the AUT match type itself (negating `close-match` would switch the campaign off) |
 
 **2. Money trigger (fires below the click-floor too).** **0 orders AND spend ≥ 2 × the product's break-even CPA** (= price × target_ACOS; e.g. €30 product × 18 % = €5.40 → negate at ≈ €11 spent with nothing back).
 
-**Object scope — negate what you did *not* choose.** Negation removes *discovered* traffic: customer **search terms** (from the Search Term report) and **irrelevant ASIN targets** matched by broad/auto. A **deliberately-placed positive keyword** — every keyword in a MRK/GEN/WTB manual campaign is one the property chose — is **never a waste-negation candidate.** Negating a GEN campaign's own category head term (e.g. `aperitivo` in the Aperitivo GEN campaign) blinds the campaign to its reason to exist. A positive keyword that wastes is a **bid problem, not a negation problem**: the fix is a lower bid or a pause, both the Optimizer's levers. Until the Search Term report is ingested and negation can operate at the query level, any keyword-level money-trigger candidate that is a positive keyword is **routed to the Optimizer as a bid-down handoff** — log it under the shared decision-log envelope tagged `NegTgt` with `handoff → Optimizer: bid-down` plus the baseline metrics, and add **no** negative. The Optimizer reads these handoffs on its next run.
+**Object scope — negate what you did *not* choose.** Negation removes *discovered* traffic: customer **search terms** (from the Search Term report) and **irrelevant ASIN targets** matched by broad/auto. A **deliberately-placed positive keyword** — every keyword in a MRK/GEN/WTB manual campaign is one the property chose — is **never a waste-negation candidate.** Negating a GEN campaign's own category head term (e.g. `aperitivo` in the Aperitivo GEN campaign) blinds the campaign to its reason to exist. A positive keyword that wastes is a **bid problem, not a negation problem**: the fix is a lower bid or a pause, both the Optimizer's levers. A keyword-level money-trigger candidate that is a positive keyword is therefore **routed to the Optimizer as a bid-down handoff** — log it under the shared decision-log envelope tagged `NegTgt` with `handoff → Optimizer: bid-down` plus the baseline metrics, and add **no** negative. The Optimizer reads these handoffs on its next run.
+
+Since 2026-08-11 the distinction is directly readable: in `<prefix>_sp_search_term_daily`, `search_term` is what the customer typed and `keyword` is what we booked. Where the two differ, the waste is **discovered** traffic and negating the `search_term` is in scope; where a query merely restates a booked keyword, it is the bid handoff above. AUT rows (`target_type = 'TARGETING_EXPRESSION_PREDEFINED'`) are always discovered — the "keyword" there is only Amazon's match type (`close-match`, `substitutes`, …), never something the property chose, and must never itself be negated.
 
 Three guards:
 - **Object scope (above):** never negate a chosen positive keyword or a head/category-defining term (`strategy.md` §3 head-term ownership) — route it to the Optimizer as a bid-down handoff instead.
