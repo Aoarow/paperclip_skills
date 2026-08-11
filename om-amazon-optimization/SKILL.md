@@ -84,13 +84,29 @@ Spread the monthly ceiling evenly (allowed/day = remaining budget ÷ remaining d
 2. On the daily tick (after a successful ingestion): idempotency check — a run dated today already in `decision-log.md`? → close.
 3. Open today's dated run issue; check out.
 4. Resolve wiring (`data-sources.md`); read context (autonomy from `client.md`, `strategy.md`, `budget.csv`, `learnings.md`, own `decision-log.md` — including recent `NegTgt` **bid-down handoffs** to fold into this run's overspend candidates).
-5. Pull performance from Supabase at campaign/keyword/target level (respect the ~1-day lag; freshest day is yesterday).
+5. Pull performance from Supabase at campaign/keyword/target level. **The day in progress is never a data point** — the freshest usable day is yesterday (D-1). See *Data cutoff* below.
 6. **Engine:** stage per-keyword/target bid changes against the R/P bands (*The bidding-policy ruleset*) — apply the gate, the weighted eff_ACOS, direction, step, floor/dynamic-ceiling.
 7. **Policy:** review campaign aggregates + anomalies; drop anything in settling from the action set (but escalate hard failures); apply the autonomy band to each staged change.
 8. Apply within-autonomy changes via the Ads API; **escalate** the rest (reassign the run issue up + `todo`, per the inbox cycle — never `blocked`).
 9. **Verify** each applied change via the Ads API (not Supabase — a just-made change isn't ingested yet).
 10. **Document** every decision in `decision-log.md` (append at `start`); on a quiet day still write the dated `RUN — no action` marker.
 11. Close-out self-check: monthly pacing within the ceiling; nothing left in a hard-failure state unescalated; today's run recorded; prior history preserved (you prepended, not overwrote).
+
+## Data cutoff — the current day is not a measurement
+
+**The day in progress is never "settled".** Ingestion runs in the early hours, so today's row
+holds only the first hours of the day. It looks like a real day with weak numbers, and that is
+exactly what makes it dangerous: a partial day reads as a downturn.
+
+- The freshest usable day is **yesterday (D-1)**, and only if the night's ingestion completed.
+- **Sanity check before judging any day:** if a day's impressions are a small fraction of the
+  preceding days, it is a **partial** day, not a **weak** day. Treat it as no measurement at all.
+- **Name the cutoff in the run note.** State which day is the latest settled one and say
+  explicitly that today is partial. A run note that reports a state without naming its cutoff
+  cannot be checked by anyone.
+
+**Non-measurement is not measurement.** Acting on a partial day — or reporting it as the state
+of the property — is the same error as acting on missing data.
 
 ## Decision-log contract (shared by all property agents)
 `decision-log.md` is **one file per property**, appended to by the Optimizer, positive Targeter, and negative Targeter, and read by the **Reviewer** (`om-amazon-review`). Every entry is tagged with the **agent** and **lever** so the timeline is parseable and the Reviewer can judge impact and spot cross-agent interactions. **Every entry carries the baseline** — without pre-change values there is no before/after for the Reviewer.
