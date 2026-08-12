@@ -54,13 +54,13 @@ No live changes. Analyze performance, document findings, propose changes as task
 ### Standard (Amazon)
 - **Bid changes** (per keyword/target, applied by the engine within policy): ceiling **±20 %** per item per run — within it the engine uses its maturity step (`om-amazon-optimization` knob 3).
 - **Keyword/target adds** from harvesting (positive Targeter) within the documented strategy.
-- **Negative adds** (waste negatives; graduation negatives) — the negation web.
+- **Negative adds** (waste negatives; graduation negatives) — the negation web. **One carve-out:** a negative arising from the **target-miss trigger** (`om-amazon-negative-targeting`, waste trigger 3 — a term that *converts* but runs far over target) is **proposed here, not applied.** That trigger is newer than the other two and negation is permanent; a wrong negation leaves silence, which nobody notices, while a wrong tolerance leaves spend, which shows up in every report.
 - **Budget reallocation between campaigns** within the property's total: up to **15 %** of the total (the total itself is unchanged).
 - **Pausing individual poor keywords/targets** is allowed.
 
 ### Extended (Amazon)
 - **Bid changes**: ceiling **±35 %** per item per run (the engine's maturity step still applies within it).
-- Keyword/target/negative adjustments as in Standard.
+- Keyword/target/negative adjustments as in Standard, **including the target-miss trigger**, which applies directly at this level instead of only proposing. Promoting a property to Extended therefore also switches that trigger live — worth knowing when you promote one.
 - **Budget reallocation between campaigns** up to **30 %** of the total.
 - **Adjusting the target-ACOS bands** (the Research vs. Profit bands) within **±15 %** of the value set in `strategy.md` — the analogue of the Google smart-bidding target change. The durable band in `strategy.md` stays human-owned: a lasting change is proposed up, not silently rewritten.
 
