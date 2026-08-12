@@ -32,6 +32,11 @@ This skill teaches the **positive Targeter** agent how to grow a property's prov
 `data-sources.md` (profile, Supabase, Search Term workflow), `client.md` (autonomy), `strategy.md` (head-term ownership map, goals), `learnings.md`, `decision-log.md` (own history), `KI-Wissen/Amazon`.
 
 ## Graduation — the core mechanic
+
+> **Aggregate per search term × ASIN, never per search term alone (2026-08-12).** A property can hold several brands, and Amazon's auto-targeting will match one brand's query to another brand's product. Averaging a term across every ASIN it touched turns a real loser into a passing number, because the winners subsidise it.
+>
+> **Measured:** `windspiel gin` screened globally at **5.67 % ACOS** — a clear winner. It ran on **eight ASINs**, and the one carrying the **largest spend** was `B0FGK2TJNH` (a *Powerwolf* product) at **25.61 % ACOS** on €24.51 — well past the bar, on a competitor-brand query, invisible in the average. Screen per term × ASIN, then decide; a term qualifying on one ASIN and failing on another is not one candidate but two facts, and the failing side is usually a **negation** job, not a graduation one.
+
 A search term/ASIN target **graduates** when it has proven it converts. **Qualifying test (2026-06-25):** over a **90-day look-back**, the term has **≥ 2 orders AND eff_ACOS ≤ 18 %** (the Profit target; use the optimizer's canonical weighted eff_ACOS). The 90-day window is deliberate — at pilot volume a winner needs time to accumulate two orders. A term below the bar stays in discovery; it is not forced up. Once qualified, graduation is **one atomic move**:
 1. **Add** the term as an **exact keyword** (or the ASIN as a product target) in the matching strategy's **Exact-Profit** campaign.
 2. **Negate-exact** the same term in its **discovery source** (the AUT or Broad-Research campaign it came from) — so it is served by exactly one campaign from now on.
@@ -67,7 +72,7 @@ Re-assert the property's head-term map each run: each head term stays positive o
 1. Inbox cycle first (`lx-paperclip-inbox-cycle`); a comment/task wake is handled, not the monthly mandate.
 2. On the monthly tick: idempotency check (a harvest dated this month already logged? → close); open the dated run issue; check out.
 3. Resolve wiring; read context — `strategy.md` (head-term map, goals), `learnings.md`, own `decision-log.md`, autonomy from `client.md`.
-4. Pull the **search terms** (`agent_reads.<prefix>_sp_search_term_daily`) + Auto/Broad-Research performance from Supabase. Aggregate over the 90-day window **per search term** before testing the threshold — one term appears once per day per source, so a raw row is not a candidate. Note the archive starts 2026-08-11 (65-day backfill, Amazon's hard limit): until ~November the 90-day look-back is short at the far end, so a borderline term may simply not have had time to prove itself.
+4. Pull the **search terms** (`agent_reads.<prefix>_sp_search_term_daily`) + Auto/Broad-Research performance from Supabase. Aggregate over the 90-day window **per search term × ASIN** before testing the threshold (see *Graduation* — a raw row is not a candidate, and a term averaged across ASINs hides cross-brand leakage). Note the archive starts 2026-08-11 (65-day backfill, Amazon's hard limit): until ~November the 90-day look-back is short at the far end, so a borderline term may simply not have had time to prove itself.
 5. Apply the graduation threshold → candidate winners (keywords + ASIN targets). Chunk if the term list is large (rare, monthly → cheap).
 6. For each winner within autonomy: execute the atomic graduation move (add Exact-Profit + negate source + on-add invariant). Escalate anything beyond the band.
 7. Re-assert head-term ownership (cross-ASIN negatives) within autonomy.
