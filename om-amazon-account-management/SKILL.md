@@ -1,6 +1,6 @@
 ---
 name: om-amazon-account-management
-description: The account-level (cross-property) duties of the KI-Account-Manager for one client's Amazon business — propose budget allocation across the client's properties within the human-approved total, arbitrate between sibling properties (cannibalization and head-term ownership across brands), and produce the client-facing monthly TACOS roll-up that spans the whole Amazon channel (one report per client, not per property). Campaign creation is also an Account-Manager act but has its own skill (om-amazon-campaign-creation). Use when the Account-Manager agent runs its monthly cycle or is asked an account-level question a single property cannot answer. DRAFT: campaign creation and the monthly roll-up are exercisable now; cross-property allocation and sibling arbitration are pass-through until a client has more than one property (avoid premature structure).
+description: The account-level (cross-property) duties of the KI-Account-Manager for one client's Amazon business — propose budget allocation across the client's properties within the human-approved total, arbitrate between sibling properties (cannibalization and head-term ownership across brands), and produce the client-facing monthly TACOS roll-up that spans the whole Amazon channel (one report per client, not per property). Campaign creation is also an Account-Manager act but has its own skill (om-amazon-campaign-creation). It also owns the first check on a **delivery-gap escalation** from a property Optimizer — whether the Buy Box, not the advertising, is why a campaign stopped serving. Use when the Account-Manager agent runs its monthly cycle, when a property agent escalates that campaigns have delivered nothing for days, or when asked an account-level question a single property cannot answer. DRAFT: campaign creation and the monthly roll-up are exercisable now; cross-property allocation and sibling arbitration are pass-through until a client has more than one property (avoid premature structure).
 ---
 
 # Amazon Advertising — Account Management (cross-property)
@@ -31,6 +31,35 @@ Produce **one** client-facing monthly scorecard across the whole Amazon channel 
 ### 5. Head-term map upkeep on priority changes — ✅ active (even for one property)
 The per-product **traffic light** lives in the product Sheet (→ Supabase); its ruleset is manifest §8. A change that flips a class's **🟢 Grün** product has a strategic follow-on: that product is the class's **head-term owner** (§5), so the head-term ownership map in `strategy.md` must follow. When such a change is detected — the sync/n8n raises an issue for the Account-Manager, or it is caught on the monthly run by comparing the Sheet's Grün-per-class against the map — the Account-Manager **proposes** the head-term update to the human/Peggy. It **never** writes `strategy.md` or the light itself (both human-owned; agent proposes, human disposes). The positive Targeter then enforces the approved map via cross-ASIN negation.
 
+### 6. Delivery-gap triage — the Buy-Box check on an Optimizer escalation — ✅ active (even for one property)
+**Without the Buy Box, Sponsored Products campaigns do not serve.** A property Optimizer that sees a campaign deliver nothing for days escalates — correctly, because it cannot see the offer side. The Account-Manager is its direct supervisor and owns the first check: **is the Buy Box the explanation?** Answering it here ends the chain one step below Peggy.
+
+Run this **before** passing a delivery-gap escalation upward. Two sources, and they answer different questions — use both:
+
+| Source | Answers | Available from |
+| :--- | :--- | :--- |
+| `agent_reads.<prefix>_sales_daily.buy_box_percentage` | **When** did we hold the Buy Box? Daily share of page views with our featured offer; `0` = we had it on none. | 2026-07-01 |
+| `agent_reads.<prefix>_buybox_daily` / `_buybox_current` | **Why** don't we hold it? (the five `buybox_status` values) | 2026-08-13 |
+
+**Procedure**
+1. Take the ASIN and the **exact date range** from the escalation.
+2. Read `buy_box_percentage` for that ASIN across the range. A stretch at or near `0` that coincides with the delivery gap is the cause — the ads are not the problem.
+3. Read `buybox_status` for the same range to get the **reason**, then route by it:
+
+| Finding | Verdict | Action |
+| :--- | :--- | :--- |
+| `suppressed` | Amazon withdrew the Buy Box (typically: the item is cheaper off-Amazon). Ends by itself. | **Close the task.** No ad change — do not pause, do not lower bids, do not restructure. Write the `decision-log.md` entry. |
+| `competitor_wins` | Offer side, but a **price** issue. | Close the ad escalation, raise the price topic **to Lexacore** — not to the customer. Record in `decision-log.md`. |
+| `no_own_offer` | We are not on the listing at all (dead listing / no buyable offer). A real problem. | Escalate — but as a **listing** issue, naming it as such. |
+| Buy Box held throughout (`we_win`, `buy_box_percentage` high) | Not the Buy Box. | Escalate to Peggy as originally raised. |
+| **No data for the range** | Not provable. | Say so **explicitly** and escalate to Peggy. Never read a measurement gap as "all fine". |
+
+**The last row is the one that bites.** The Buy-Box state is **not retrievable retroactively** — `amazon_buybox_daily` only knows days it actually measured, and nothing before 2026-08-13; `buy_box_percentage` reaches back to 2026-07-01 but says nothing about the *reason*. For a range before those dates the honest answer is "cannot be established", not a verdict.
+
+Whatever the outcome, write a dated `decision-log.md` entry on the property — including the close-the-task case. A closed escalation without a logged reason recreates the same escalation next week.
+
+> **Pending (needs the monthly report, which does not exist yet):** a Buy Box `suppressed` for **more than 10 consecutive days** belongs in the client's monthly report — no escalation, but the customer learns of it and it is on record. `days_in_status` in `agent_reads.<prefix>_buybox_current` is the field. Until the report exists, note it in `decision-log.md` so it can be picked up later.
+
 ## Inputs
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
@@ -39,10 +68,12 @@ The per-product **traffic light** lives in the product Sheet (→ Supabase); its
 | `strategy.md` (per property) | goals, head-term ownership maps | READ (never write) |
 | Supabase (`amazon_ads_raw` / views) | per-property performance (ACOS, spend, ad-attributed sales) | READ |
 | `public.sales_data` / monthly CSV | total sales for TACOS | READ |
+| `agent_reads.<prefix>_buybox_daily` / `_buybox_current` | **why** an ASIN has no Buy Box — the five `buybox_status` values, `days_in_status` (duty 6) | READ |
+| `agent_reads.<prefix>_sales_daily.buy_box_percentage` | **when** we held the Buy Box — the historical half of duty 6 | READ |
 | each property's `decision-log.md` / `learnings.md` | context for allocation/arbitration | READ |
 
 ## Run sequence (monthly + on-demand)
-1. Inbox cycle first (`lx-paperclip-inbox-cycle`) — handle account-level questions/escalations from the human or from a property agent.
+1. Inbox cycle first (`lx-paperclip-inbox-cycle`) — handle account-level questions/escalations from the human or from a property agent. **A delivery-gap escalation from an Optimizer runs duty 6 before anything else** — it is the cheapest question in the queue and usually ends the chain here.
 2. On the monthly tick: build the TACOS roll-up (duty 4). For a multi-property client, also run duties 1–2 (propose allocation, audit head-term ownership across siblings) and escalate proposals to the human.
 3. On a campaign-creation request: invoke `om-amazon-campaign-creation`.
 4. Close out per the inbox cycle; escalate anything beyond authority (budget total, strategy changes) to Peggy/human.
@@ -56,7 +87,7 @@ The per-product **traffic light** lives in the product Sheet (→ Supabase); its
 - `architecture-and-principles.md` / architecture memo §1 — the Account-Manager tier and when it is instantiated.
 - `om-amazon-campaign-creation` — the creation procedure (duty 3).
 - `om-amazon-advertising-manifest` §5 — head-term ownership (cross-property arbitration).
-- `om-amazon-ads-reference` — `supabase-schema.md` (per-property data + the `sales_data`/TACOS note).
+- `om-amazon-ads-reference` — `supabase-schema.md` (per-property data, the `sales_data`/TACOS note, and the Buy-Box views used by duty 6).
 - `lx-paperclip-inbox-cycle` — run/escalation mechanics.
 
 ## Maintenance

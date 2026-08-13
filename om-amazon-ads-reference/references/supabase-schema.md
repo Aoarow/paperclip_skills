@@ -101,6 +101,35 @@ Total (organic **+** ad) revenue per ASIN per day, from the **Selling Partner AP
 > Until that rule exists in the rule set, treat TACOS as read-only context. If TACOS seems to demand an
 > action, that is an escalation to the human — not an action.*
 
+## SP-API Buy-Box state — why a campaign stopped serving (LIVE 2026-08-13)
+
+**Without the Buy Box, Sponsored Products campaigns do not serve.** A campaign can sit at `ENABLED` with a healthy bid and still report zero rows for days. This is the lookup that names the cause instead of guessing at the ads. Used by the Account-Manager's delivery-gap triage (`om-amazon-account-management` duty 6).
+
+- **Source:** SP-API Product Pricing v0, `getItemOffersBatch` (20 ASIN per call). Collector `~/.sp-api/sp_buybox_pull.py`, cron **04:45 UTC** — 15 min before the ads sync, so the cause is already on file when the Optimizer runs.
+- **🔴 No history exists.** The API returns only the current state; it cannot be backfilled. The table knows **nothing before 2026-08-13**, and nothing about days it failed to measure. A missing range means *"cannot be established"* — never *"was fine"*.
+- **Landing table `public.amazon_buybox_daily`** (`service_role` only — **NOT for agents**). Grain is the **observation** (`captured_at`), not the day: one call per day is a sample, and the Buy Box can flip intraday. `snapshot_date` (UTC) is generated.
+
+- **The five `buybox_status` values — the routing depends on the difference:**
+
+  | Value | Meaning | What it implies |
+  | :--- | :--- | :--- |
+  | `we_win` | one of our offers holds the Buy Box | normal |
+  | `competitor_wins` | a foreign seller holds it (`buybox_seller_id`) | offer side, but a **price** issue → Lexacore, not the customer |
+  | `suppressed` | offers exist and are eligible, yet Amazon awards the Buy Box to **nobody** — typically because the item is cheaper off-Amazon | **no reaction.** Ends by itself; not an advertising problem |
+  | `no_own_offer` | our SellerId is absent, or the listing has no buyable offer at all | a **real** listing problem → escalate |
+  | `unavailable` | the measurement failed (see `error`) | **not a state.** Excluded from the `_current` views |
+
+- **Agent views (READ THESE):**
+  - **`agent_reads.<prefix>_buybox_daily`** — one row per ASIN per day (the day's latest observation), plus `buybox_price`, `our_lowest_price`, `lowest_price`, `buybox_seller_id`, `total_offer_count`, `api_status`, `error`.
+  - **`agent_reads.<prefix>_buybox_current`** — **the one to read.** Current state per ASIN with `since_date` and **`days_in_status`**. A measurement gap **breaks** the streak rather than bridging it, so `days_in_status` never overstates.
+  - Bimmerle = `agent_reads.bi_buybox_current` (+ the five `bi_<brand>_…` variants); Windspiel = `wi_buybox_current`. Same `security_definer` + `amazon_ro_<property>` SELECT-only model as the ad views.
+
+- **Two quirks worth knowing before writing SQL:**
+  - There are regularly **two own offers** per ASIN (the FBM row and its FBA twin, same SellerId). The status already answers *"does any of ours win"* — do not re-derive it per offer.
+  - Amazon **caps** the returned offer list. Compare `offers_listed` against `total_offer_count`: if the list was truncated, `no_own_offer` is not proven.
+
+- **The historical half lives elsewhere.** `amazon_buybox_daily` answers **why**; `buy_box_percentage` in `agent_reads.<prefix>_sales_daily` answers **when** (daily share of page views with our featured offer, `0` = none) and reaches back to **2026-07-01**. For any question about a past date range, read both — the percentage dates the gap, the status explains it.
+
 ## Security — RLS state (surface, do not auto-fix)
 
 As of 2026-06-15 the 6 **catalog** tables have **RLS disabled** (the report streams have it enabled). This is the documented "RLS resets on `full_refresh_overwrite`" issue (`Airbyte.md`): each sync recreates the catalog tables and drops the `ENABLE ROW LEVEL SECURITY` flag. These tables hold no policies and are intended for service-role / direct-Postgres access only — but with RLS off they are reachable by the `anon`/`authenticated` keys. The standing TODO (Airbyte.md) is to **automate re-applying RLS after each sync** (Postgres event trigger or a post-sync step). Re-apply SQL lives in `Airbyte.md`. Do not enable RLS without policies blindly — coordinate with whoever owns the Supabase frontend access model.
