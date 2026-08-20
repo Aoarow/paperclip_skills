@@ -207,13 +207,25 @@ and the velocity comes out inflated by the ratio between them. Measured on the l
 mistake produced a **2.5× overshoot** — a shipment two and a half times larger than the truth, and
 every intermediate number looked reasonable.
 
-The days that count are those where stock was **measured and greater than zero**. A day with no
-stock snapshot is **not** a day without stock — it is a day we know nothing about, and it belongs in
-neither half of the fraction. Sum the sales of the qualifying days only; divide by how many there
-are.
+**A qualifying day is one where all three hold:**
 
-Stock snapshots begin later than sales history, so the usable window is short at first and widens
-by one day per day. The agent states which window it used and how many days it holds.
+1. **A stock snapshot exists.** A day with no snapshot is not a day without stock — it is a day we
+   know nothing about, and it belongs in neither half of the fraction.
+2. **`fulfillable_quantity` was above zero** — not "available". Goods in transit cannot be sold, so
+   a day with empty shelves and a truck on the road is a day on which no sale was possible. Counting
+   it would understate the velocity of exactly the products that ran dry.
+3. **The day is settled.** The current day has no final sales figure; it belongs in neither half.
+
+⚠️ **The two uses of "stock" are different and must not be swapped.** For **reach**, available stock
+is `fulfillable + inbound` — goods on the way will arrive and do cover future demand. For **counting
+qualifying days**, only `fulfillable` counts — goods on the way cannot be sold today. The same word,
+two meanings, one line apart.
+
+Where a qualifying day carries no sales row for a product, that is **zero units sold**, not missing
+data: the product was on the shelf and did not move.
+
+Stock snapshots begin later than sales history, so the usable window is short at first and widens by
+one day per day. The agent states which window it used and how many days it holds.
 
 Two further properties of the data, both of which produce plausible wrong numbers:
 
