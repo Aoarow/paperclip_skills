@@ -109,6 +109,26 @@ mirror is the source, and the agent has no SP-API credentials by design.
 
 `<t>` is the tenant prefix of the account.
 
+### Which source gates which answer
+
+A stale source blocks **its own** part of the run, not the whole run. Say what is unavailable and
+deliver the rest.
+
+| Answer | Needs | Does **not** need |
+|---|---|---|
+| Is a delivery due, and how much | stock, sales, packing, `client.md` | the shipment view — inbound quantities come from the stock view |
+| Which shipments hang without a tracking number | the shipment view | — |
+| Has a shipment arrived as sent | the shipment view | — |
+
+Refusing to compute a reach check because the *shipment* mirror is stale withholds a correct answer
+for an unrelated reason. Compute what the fresh sources support, mark the rest as unavailable, and
+escalate the stale source separately.
+
+⚠️ **A timestamp is only a freshness signal if it is written on every pass.** A column filled by a
+database default is set once, at first insert, and then keeps claiming that moment forever while the
+row around it updates normally. Before trusting any `fetched_at`-style column, confirm the writer
+sends it — otherwise it reports when a row was first seen, not when it was last confirmed.
+
 ---
 
 ## The replenishment mechanic
