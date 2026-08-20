@@ -179,10 +179,21 @@ is a full entry with its reason, not a blank.
 measures as a non-seller, and is therefore never replenished — it removes itself from the process
 permanently. This is the single most dangerous computation in this skill.
 
-    velocity = units sold in window / number of days in that window WITH stock > 0
+    velocity = units sold ON THE MEASURED DAYS / count of those same days
 
-The daily stock snapshots make this computable. Where snapshot history is shorter than the sales
-window, the agent uses the shorter window and says so.
+⚠️ **Numerator and denominator must cover exactly the same days.** This is the part that goes wrong
+in practice: a window is chosen for the sales figure, a different, shorter one for the day count,
+and the velocity comes out inflated by the ratio between them. Measured on the live account, that
+mistake produced a **2.5× overshoot** — a shipment two and a half times larger than the truth, and
+every intermediate number looked reasonable.
+
+The days that count are those where stock was **measured and greater than zero**. A day with no
+stock snapshot is **not** a day without stock — it is a day we know nothing about, and it belongs in
+neither half of the fraction. Sum the sales of the qualifying days only; divide by how many there
+are.
+
+Stock snapshots begin later than sales history, so the usable window is short at first and widens
+by one day per day. The agent states which window it used and how many days it holds.
 
 Two further properties of the data, both of which produce plausible wrong numbers:
 
