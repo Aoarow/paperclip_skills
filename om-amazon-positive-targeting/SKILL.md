@@ -86,4 +86,4 @@ Re-assert the property's head-term map each run: each head term stays positive o
 - `lx-paperclip-inbox-cycle` — close-out / escalation.
 
 ## Maintenance
-This skill owns the *harvest/graduate procedure*. Invariants live in the manifest; thresholds are the pending ruleset; API/schema in `om-amazon-ads-reference`. The reviewer reads this agent's `decision-log.md` too — keep the log format in step with the reviewer's contract.
+This skill owns the *harvest/graduate procedure* **and its thresholds** — the graduation test (*Graduation*, defined 2026-06-25), the roster cap, and the per-term × ASIN aggregation rule (2026-08-12). They are **not** pending: an agent that reads this file has everything it needs to graduate, and must not wait for a threshold to arrive in its issue text. Invariants live in the manifest; API/schema in `om-amazon-ads-reference`. The reviewer reads this agent's `decision-log.md` too — keep the log format in step with the reviewer's contract.
