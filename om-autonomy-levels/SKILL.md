@@ -64,7 +64,7 @@ No live changes. Analyze performance, document findings, propose changes as task
 - **Budget reallocation between campaigns** up to **30 %** of the total.
 - **Adjusting the target-ACOS bands** (the Research vs. Profit bands) within **±15 %** of the value set in `strategy.md` — the analogue of the Google smart-bidding target change. The durable band in `strategy.md` stays human-owned: a lasting change is proposed up, not silently rewritten.
 
-**Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; a bid that would breach the **€0.07 floor or the €5.00 hard max-CPC** (knob 5) — to the human via the Account Manager; any change beyond the active level's bands.
+**Amazon — always escalate (in addition to the cross-channel list below):** pausing or enabling a whole campaign; raising the property's total monthly budget; changing the head-term ownership map; activating a newly created (PAUSED) campaign; a bid that would breach the **€0.07 floor or the €5.00 hard max-CPC** (knob 5) — to the human via the Account Manager; any change beyond the active level's bands. **Once a human has decided, the answer returns to the object's owner for execution — see *The return path* below.**
 
 > **A permitted lever is not automatically an available lever.** The autonomy level says what an
 > agent *may* do; whether a tool exists for it in that agent's runtime is set separately per agent
@@ -75,6 +75,42 @@ No live changes. Analyze performance, document findings, propose changes as task
 > If a lever is permitted but not callable: **escalate naming the exact tool id, and never
 > substitute another tool for it.** Do not treat the missing tool as a reason to act outside the
 > band, and do not treat the permission as proof the tool is there.
+
+## The return path — who executes a decision that came back
+
+Escalation is not a one-way street. Every escalation a human decides must come back down to
+**the agent that owns the object**, and performing that routing is part of resolving the issue —
+not an optional courtesy. Without it an approved change circles between tiers and nothing
+happens.
+
+- **Ownership follows the object, not the rank.** A bid belongs to the property Optimizer. A
+  keyword, target or negative belongs to the Targeter that owns that lane. Campaign creation
+  belongs to the Account Manager. **Nobody above the property tier writes to an ad account** —
+  not the Account Manager for bids, not the department head, not the CEO agent. A tier that
+  cannot hold the property's context (`strategy.md`, `learnings.md`, its own `decision-log.md`)
+  must not write to it: an undocumented change reads as drift on the next daily run.
+- **Route down before routing sideways or up.** Before handing an execution request to a peer or
+  upward, look up the agent that holds the tool in
+  `om-amazon-ads-reference/references/mcp-write-tools.md` and hand the issue to that agent. An
+  execution request that travels past an agent who could have executed it is a routing defect,
+  not diligence.
+- **A human-authorized, bounded change is not an autonomous action.** When a human has approved a
+  specific, enumerated change — named campaign, named items, named before/after values — the
+  executing agent does **not** re-test it against its autonomy band. The band governs what an
+  agent decides on its own; it does not gate what a human already decided. The executor's job
+  narrows to three things: write exactly the enumerated scope, read it back, and log it with the
+  authorization named. Anything beyond the enumerated scope is out of scope and escalates as
+  usual. The hard bounds still hold without exception — the €0.07 floor, the €5.00 max-CPC, and
+  everything under *Always escalate*.
+- **When nobody can execute, stop on the first pass.** If no agent holds a callable tool for the
+  lever, that is a **terminal state**, not something to discover by handing the issue around.
+  Open a confirmation request to the human immediately, naming the exact tool id that is missing
+  and the exact change still outstanding. Some levers are terminal by construction and are never
+  routed to another agent: raising the property's total monthly budget, pausing or enabling a
+  whole campaign, activating a PAUSED campaign, and any campaign-budget write
+  (`update_campaign_budget` is callable by no agent, by design).
+- **Never leave an issue `blocked` without a linked blocker.** `blocked` is human-reserved, and a
+  bare `blocked` is a dead end that trips supervisor auto-recovery. Escalate or hand off instead.
 
 ## Always escalate (every level)
 Regardless of level, escalate these to the department head:

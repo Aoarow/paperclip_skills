@@ -31,14 +31,43 @@ The tool map above lists the **right** tool for each lever. Whether that tool is
 your runtime** is a separate question: `enabled_tools` is set per agent, and a lever the autonomy
 level permits may have no tool behind it.
 
-**Current state (2026-08-05):**
+**Current state — generated, never hand-maintained.** The block between the markers below is
+produced from the authoritative registry `/home/paperclip/.amazon-ads-mcp/tenants.json` — the
+same file `render-mcp-configs.py` stamps the agents' Codex configs from, so the map and the
+runtime cannot disagree. Regenerate with `~/.amazon-ads-mcp/tool-map.py`; the daily
+`~/paperclip-fixes/flotte.sh` check reports drift. **Do not edit between the markers by hand.**
 
-| Tool | Enabled for |
-| :--- | :--- |
-| `campaign_management-update_target_bid` | **WIN-amz Optimizer only** (Windspiel, Autonomy Standard) |
-| `campaign_management-update_campaign_budget` | nobody |
-| `campaign_management-update_target` (state) | nobody |
-| `campaign_management-update_campaign_state` | nobody |
+> **⚠️ A stale map is worse than no map — and this one has now caused the same failure twice.**
+> On 2026-08-25 this table still read "`update_target_bid` — WIN-amz Optimizer only", 20 days
+> out of date: six property Optimizers held the tool, including the one that owned the campaign
+> in question. Three agents drew the correct conclusion from the wrong premise — that nobody
+> could execute a bid change for Bimmerle — and escalated **upward past the agent that could**.
+> Six runs, no mutation (LEXA-590 / 595 / 596). The first occurrence is the LEXA-399…412 note
+> below; there the tool really was missing. **When a lever looks unavailable, verify against the
+> registry before concluding that it is** — and never route an execution request past its owner.
+
+> **⚠️ Two `tenants.json` exist.** The authoritative one is under `/home/paperclip` (the renderer
+> runs with `HOME=/home/paperclip`). The copy under `/home/alex` is left over from the migration,
+> is out of date, and must not be read for this map.
+
+<!-- TOOL-MAP:START — erzeugt von ~/.amazon-ads-mcp/tool-map.py, nicht von Hand pflegen -->
+
+| Tool | In toolset | Agents |
+| :--- | :--- | ---: |
+| `campaign_management-update_target_bid` | `operate_bid` | 6 |
+| `campaign_management-update_campaign_budget` | **none** | **nobody** |
+| `campaign_management-update_target` | **none** | **nobody** |
+| `campaign_management-update_campaign_state` | **none** | **nobody** |
+| `campaign_management-update_campaign` | `operate`, `operate_bid` | 20 |
+| `campaign_management-delete_target` | `operate`, `operate_bid` | 20 |
+
+Which agent holds which toolset:
+
+- **`operate`** (13 tools) — `BIM-amz Account Manager`, `BIM-donpasquale NegTar`, `BIM-donpasquale PosTar`, `BIM-evermann NegTar`, `BIM-evermann PosTar`, `BIM-loerch NegTar`, `BIM-loerch PosTar`, `BIM-needle NegTar`, `BIM-needle PosTar`, `BIM-woodstork NegTar`, `BIM-woodstork PosTar`, `WIN-amz Account Manager`, `WIN-amz NegTar`, `WIN-amz PosTar`
+- **`operate_bid`** (14 tools) — `BIM-donpasquale Optimizer`, `BIM-evermann Optimizer`, `BIM-loerch Optimizer`, `BIM-needle Optimizer`, `BIM-woodstork Optimizer`, `WIN-amz Optimizer`
+- **`read`** (5 tools) — `BIM-donpasquale Reviewer`, `BIM-evermann Reviewer`, `BIM-loerch Reviewer`, `BIM-needle Reviewer`, `BIM-woodstork Reviewer`, `WIN-amz Reviewer`
+
+<!-- TOOL-MAP:END -->
 
 **If the tool you need is not callable, escalate — never substitute.** Specifically:
 - **delete + re-create is not a bid update.** It destroys the target's history and its
@@ -53,7 +82,7 @@ level permits may have no tool behind it.
 
 ### Bid writes — guardrails (`update_target_bid`)
 
-Now that the tool is live for one agent, the rules around it are binding:
+Now that the tool is live for the property Optimizers, the rules around it are binding — for every agent that holds it, not just the first one:
 
 1. **Ceiling from the autonomy level** (`om-autonomy-levels`): Standard **±20 %** per item per
    run, Extended ±35 %. The engine's maturity step (`om-amazon-optimization` knob 3) applies
