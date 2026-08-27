@@ -38,8 +38,16 @@ Run this **before** passing a delivery-gap escalation upward. Two sources, and t
 
 | Source | Answers | Available from |
 | :--- | :--- | :--- |
-| `agent_reads.<prefix>_sales_daily.buy_box_percentage` | **When** did we hold the Buy Box? Daily share of page views with our featured offer; `0` = we had it on none. | 2026-07-01 |
-| `agent_reads.<prefix>_buybox_daily` / `_buybox_current` | **Why** don't we hold it? (the five `buybox_status` values) | 2026-08-13 |
+| `agent_reads.<tenant-prefix>_sales_daily.buy_box_percentage` | **When** did we hold the Buy Box? Daily share of page views with our featured offer; `0` = we had it on none. | 2026-07-01 |
+| `agent_reads.<tenant-prefix>_buybox_daily` / `_buybox_current` | **Why** don't we hold it? (the five `buybox_status` values) | 2026-08-13 |
+
+> **`<tenant-prefix>` is the *tenant* prefix (`bi_`, `wi_`) — never a property prefix.** As the
+> account-level role you read the **account-wide** views, which already span every property of the
+> client; filter them by ASIN or campaign to look at one brand. The property-scoped views
+> (`bi_woodstork_…`) belong to the property agents, and your role is denied them **at the database
+> level** — that denial is the design, not a misconfiguration. If you hit `permission denied` on a
+> property-scoped view, you asked for the wrong view: switch to the account-wide one. Never request
+> a grant to work around it, and never treat the denial as a blocker to escalate.
 
 **Procedure**
 1. Take the ASIN and the **exact date range** from the escalation.
@@ -58,7 +66,7 @@ Run this **before** passing a delivery-gap escalation upward. Two sources, and t
 
 Whatever the outcome, write a dated `decision-log.md` entry on the property — including the close-the-task case. A closed escalation without a logged reason recreates the same escalation next week.
 
-> **Pending (needs the monthly report, which does not exist yet):** a Buy Box `suppressed` for **more than 10 consecutive days** belongs in the client's monthly report — no escalation, but the customer learns of it and it is on record. `days_in_status` in `agent_reads.<prefix>_buybox_current` is the field. Until the report exists, note it in `decision-log.md` so it can be picked up later.
+> **Pending (needs the monthly report, which does not exist yet):** a Buy Box `suppressed` for **more than 10 consecutive days** belongs in the client's monthly report — no escalation, but the customer learns of it and it is on record. `days_in_status` in `agent_reads.<tenant-prefix>_buybox_current` is the field. Until the report exists, note it in `decision-log.md` so it can be picked up later.
 
 ## Inputs
 | Source | Read for | Rights |
@@ -68,8 +76,8 @@ Whatever the outcome, write a dated `decision-log.md` entry on the property — 
 | `strategy.md` (per property) | goals, head-term ownership maps | READ (never write) |
 | Supabase (`amazon_ads_raw` / views) | per-property performance (ACOS, spend, ad-attributed sales) | READ |
 | `public.sales_data` / monthly CSV | total sales for TACOS | READ |
-| `agent_reads.<prefix>_buybox_daily` / `_buybox_current` | **why** an ASIN has no Buy Box — the five `buybox_status` values, `days_in_status` (duty 6) | READ |
-| `agent_reads.<prefix>_sales_daily.buy_box_percentage` | **when** we held the Buy Box — the historical half of duty 6 | READ |
+| `agent_reads.<tenant-prefix>_buybox_daily` / `_buybox_current` | **why** an ASIN has no Buy Box — the five `buybox_status` values, `days_in_status` (duty 6) | READ |
+| `agent_reads.<tenant-prefix>_sales_daily.buy_box_percentage` | **when** we held the Buy Box — the historical half of duty 6 | READ |
 | each property's `decision-log.md` / `learnings.md` | context for allocation/arbitration | READ |
 
 ## Run sequence (monthly + on-demand)
