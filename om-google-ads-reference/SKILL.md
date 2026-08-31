@@ -5,6 +5,17 @@ description: Stable Google Ads API reference and specification for all Online Ma
 
 # Google Ads — Shared Reference
 
+> **Where this skill's reference files actually are.** Paperclip copies only this `SKILL.md` into
+> the agent runtime — the `references/` folder is not delivered with it, and the runtime folder
+> carries a hash suffix. A relative `references/<file>` path therefore does **not** resolve.
+> Read them from the filesystem instead:
+>
+> **`/srv/lexacore-skills/om-google-ads-reference/references/<file>`**
+>
+> That path is readable for the agent user and is kept current from git. Progressive disclosure is
+> unchanged — open the one file you need, not all of them.
+
+
 The binding spec layer for every Google Ads agent. This skill holds **no procedures of
 its own** — it is a reference index. The procedures that use these files live in the
 consuming skills: `om-google-campaign-creation` (building campaigns) and

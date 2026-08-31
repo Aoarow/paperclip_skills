@@ -5,6 +5,17 @@ description: Map and navigation guide for the Lexacore Google Drive. Explains th
 
 # Lexacore Google Drive – The Workspace
 
+> **Where this skill's reference files actually are.** Paperclip copies only this `SKILL.md` into
+> the agent runtime — the `references/` folder is not delivered with it, and the runtime folder
+> carries a hash suffix. A relative `references/<file>` path therefore does **not** resolve.
+> Read them from the filesystem instead:
+>
+> **`/srv/lexacore-skills/lx-gdrive-structure/references/<file>`**
+>
+> That path is readable for the agent user and is kept current from git. Progressive disclosure is
+> unchanged — open the one file you need, not all of them.
+
+
 This skill is the single source of truth for the Lexacore Google Drive structure. Humans and AI agents share the same map. Whoever moves, renames, or creates folders updates this skill – human and agent alike. A document is only "real" if its location is documented here.
 
 ## Shared-Drive-Root

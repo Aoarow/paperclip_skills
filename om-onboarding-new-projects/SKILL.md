@@ -5,6 +5,17 @@ description: Provision a new Online Marketing channel or property for a customer
 
 # Online Marketing Project Onboarding
 
+> **Where this skill's reference files actually are.** Paperclip copies only this `SKILL.md` into
+> the agent runtime — the `references/` folder is not delivered with it, and the runtime folder
+> carries a hash suffix. A relative `references/<file>` path therefore does **not** resolve.
+> Read them from the filesystem instead:
+>
+> **`/srv/lexacore-skills/om-onboarding-new-projects/references/<file>`**
+>
+> That path is readable for the agent user and is kept current from git. Progressive disclosure is
+> unchanged — open the one file you need, not all of them.
+
+
 Set up the operational layer for an approved Online Marketing property. Treat this as
 one cross-channel procedure with channel-specific branches.
 

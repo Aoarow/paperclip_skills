@@ -1,9 +1,20 @@
 ---
 name: om-amazon-ads-reference
-description: Stable Amazon Advertising API reference and data-layer specification for all Online Marketing agents — the Sponsored Products object model (campaign / ad group / product ad / keyword / target / negative), match types, bulk-operation and rate-limit rules, the report types and their grains, and the amazon_ads_raw Supabase schema (the Airbyte-ingested tables the agents actually read). The shared spec/contract layer used by Amazon campaign creation, optimization, and targeting. Use whenever an agent needs the exact, binding API or data-schema contract for building, changing, verifying, or reading an Amazon advertising structure. Strategic doctrine lives in om-amazon-advertising-manifest; evolving best practice lives in Drive KI-Wissen/Amazon.
+description: Stable Amazon Advertising API reference and data-layer specification for all Online Marketing agents — the Sponsored Products object model (campaign / ad group / product ad / keyword / target / negative), match types, bulk-operation and rate-limit rules, the report types and their grains, and the amazon_ads_raw Supabase schema (the nightly-ingested tables the agents actually read). The shared spec/contract layer used by Amazon campaign creation, optimization, and targeting. Use whenever an agent needs the exact, binding API or data-schema contract for building, changing, verifying, or reading an Amazon advertising structure. Strategic doctrine lives in om-amazon-advertising-manifest; evolving best practice lives in Drive KI-Wissen/Amazon.
 ---
 
 # Amazon Advertising — Shared Reference
+
+> **Where this skill's reference files actually are.** Paperclip copies only this `SKILL.md` into
+> the agent runtime — the `references/` folder is not delivered with it, and the runtime folder
+> carries a hash suffix. A relative `references/<file>` path therefore does **not** resolve.
+> Read them from the filesystem instead:
+>
+> **`/srv/lexacore-skills/om-amazon-ads-reference/references/<file>`**
+>
+> That path is readable for the agent user and is kept current from git. Progressive disclosure is
+> unchanged — open the one file you need, not all of them.
+
 
 The binding spec layer for every Amazon ad agent. This skill holds **no procedures of its own** — it is a reference index. The procedures that use these files live in the consuming skills: `om-amazon-campaign-creation`, `om-amazon-optimization`, `om-amazon-positive-targeting`, `om-amazon-negative-targeting`.
 

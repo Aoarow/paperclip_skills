@@ -5,6 +5,17 @@ description: Create the Plane project + standard onboarding task list for a new 
 
 # Plane / client-portal onboarding
 
+> **Where this skill's reference files actually are.** Paperclip copies only this `SKILL.md` into
+> the agent runtime — the `references/` folder is not delivered with it, and the runtime folder
+> carries a hash suffix. A relative `references/<file>` path therefore does **not** resolve.
+> Read them from the filesystem instead:
+>
+> **`/srv/lexacore-skills/lx-plane-portal-onboarding/references/<file>`**
+>
+> That path is readable for the agent user and is kept current from git. Progressive disclosure is
+> unchanged — open the one file you need, not all of them.
+
+
 Run this as part of onboarding a new client, **after** their Drive/Paperclip setup, to give them the shared task board that shows up in the lexacore.de client portal (tab "Projekt"). Client and Lexacore both see and work the same tasks there; Lexacore's completed prep work is shown, the client sees a short to-do list.
 
 This is a small, self-contained building block. It does **not** provision the
