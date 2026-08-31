@@ -39,8 +39,20 @@ The agent **proposes; humans dispose.** Anything beyond the autonomy ceiling is 
 | `budget.csv` | the monthly ceiling (sacred) | READ (human-owned) |
 | product catalog (Supabase) | per-ASIN `priority` (traffic light) → **budget weighting** across products (manifest §8); category/stock context | READ |
 | `learnings.md` | the reviewer's accumulated lessons | READ |
-| `decision-log.md` | own prior decisions / settling | READ + WRITE |
+| `decision-log.md` | own prior decisions / settling — **history, never state** (see below) | READ + WRITE |
 | `KI-Wissen/Amazon` | current best practice (optional) | READ |
+
+> **Your decision-log is history, not state.** Each entry records what held on that day and what you
+> did. It is **never** a source for your current autonomy level or for which tools you can call —
+> both are read fresh every run from `client.md` and from `om-amazon-ads-reference` →
+> `references/mcp-write-tools.md`. Where a past entry of yours disagrees with today's sources,
+> **today's sources win** and the entry is stale. Never carry a capability claim forward out of your
+> own log: that is how one wrong assumption reproduces itself every morning.
+>
+> *(LEXA-658, 2026-08-31: an Optimizer refused an authorized bid change as "runtime read-only". The
+> claim came from its own log — ten entries deep, one of them explicitly overriding `client.md` —
+> while the tool had been rendered into its config since 2026-08-24. Rerouted by the Account
+> Manager, it executed successfully three minutes later.)*
 
 When reallocating budget across campaigns within the property total, **weight by the product's priority** (Prio 1 largest share, 2 normal, 3 smallest — manifest §8), within the autonomy band.
 
