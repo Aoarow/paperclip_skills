@@ -9,6 +9,13 @@ The binding spec layer for every Amazon ad agent. This skill holds **no procedur
 
 Load only the file you need (progressive disclosure); do not read them all up front.
 
+> **Tool availability is never a question of memory.** Before you record that a tool is not
+> callable — and above all before you escalate or hand work to another agent because of it —
+> read `references/mcp-write-tools.md` and find **your own agent name** in the toolset lists.
+> That block is generated from the same registry the runtime is stamped from, so it cannot
+> disagree with what you actually hold. That another agent lacks a tool says nothing about
+> whether you have it.
+
 ## Reference files
 
 | File | Status |

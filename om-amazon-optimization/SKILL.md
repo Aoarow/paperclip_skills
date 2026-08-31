@@ -9,7 +9,9 @@ This skill teaches an optimizer agent how to optimize **one property's** live Sp
 
 The agent **proposes; humans dispose.** Anything beyond the autonomy ceiling is escalated, never executed. Money is real and changes are live — when in doubt, do nothing and escalate.
 
-**Ordering:** runs **after** successful nightly ingestion (Airbyte → Supabase). Stale data → wrong bid/budget moves → wasted spend.
+**The converse binds just as hard: anything *inside* the ceiling, you execute yourself.** An in-band change to a target on your own property is never handed to the Account Manager, to Peggy or to a human "for execution" — they do not own the object and cannot write it, so the request dies one tier up. Finish it, read it back, log it. And if a lever looks uncallable, verify it against `om-amazon-ads-reference` → `references/mcp-write-tools.md` before you conclude anything: escalating on an unverified premise costs a day and lands on an agent who cannot act either.
+
+**Ordering:** runs **after** successful nightly ingestion (`ads_sync.py` → Supabase). Stale data → wrong bid/budget moves → wasted spend.
 
 > **Bidding-policy ruleset — DEFINED (2026-06-25).** The deterministic bid rules live in *The bidding-policy ruleset* below. Property-specific numbers (target-ACOS bands, AUT spend cap) are read from `strategy.md`; the engine **mechanism** (gate, weighted ACOS, dynamic max-CPC, step bands, settling) is doctrine here. Defaults were calibrated from Windspiel's 8-month history; a second property reviews them against its own data before reuse.
 
