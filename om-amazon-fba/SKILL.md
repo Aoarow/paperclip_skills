@@ -99,7 +99,7 @@ mirror is the source, and the agent has no SP-API credentials by design.
 
 | Source | What for |
 |---|---|
-| `<t>_fba_inventory_daily` | fulfillable stock and inbound quantities, per FNSKU, per day |
+| `<t>_fba_inventory_daily` | fulfillable, **reserved** and inbound quantities, per FNSKU, per day |
 | `<t>_sales_daily` | sales velocity, per ASIN |
 | `<t>_fba_shipments` | shipment state, destination, delivery window |
 | `<t>_fba_chase` | shipments ready/shipped without a tracking number |
@@ -148,8 +148,18 @@ Which mode applies is stated in `client.md`.
 
     reach [days] = available stock / sales velocity [units per day]
 
-Available stock is **fulfillable** plus inbound. `total_quantity` is **not** a stock measure — it
+Available stock is **fulfillable + inbound + reserved in transit**, where *reserved in transit* is
+`reserved_transshipment + reserved_fc_processing`. `total_quantity` is **not** a stock measure — it
 includes goods already on their way and double-counts them.
+
+⚠️ **`reserved_transshipment` is real stock and must be counted.** A pallet that has arrived at
+Amazon but is not yet booked onto the shelf sits there — it appears in **neither** `fulfillable`
+**nor** `inbound`, so a run that only adds those two sees an empty shelf where a full pallet is
+standing. Measured on the live account on 2026-09-01: 126 cartons of one SKU were invisible this
+way, and the run proposed a second full pallet on top of the one that had just landed.
+
+**`reserved_customer_order` does not count.** Those units are sold and will leave the warehouse;
+adding them would overstate what is available to cover future demand.
 
 ### Protection interval
 
@@ -217,9 +227,10 @@ every intermediate number looked reasonable.
 3. **The day is settled.** The current day has no final sales figure; it belongs in neither half.
 
 ⚠️ **The two uses of "stock" are different and must not be swapped.** For **reach**, available stock
-is `fulfillable + inbound` — goods on the way will arrive and do cover future demand. For **counting
-qualifying days**, only `fulfillable` counts — goods on the way cannot be sold today. The same word,
-two meanings, one line apart.
+is `fulfillable + inbound + reserved_transshipment + reserved_fc_processing` — goods on the way, or
+landed but not yet booked, will be sellable and do cover future demand. For **counting qualifying
+days**, only `fulfillable` counts — nothing else can be sold today. The same word, two meanings, one
+line apart.
 
 Where a qualifying day carries no sales row for a product, that is **zero units sold**, not missing
 data: the product was on the shelf and did not move.
