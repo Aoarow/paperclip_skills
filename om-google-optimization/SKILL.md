@@ -1,6 +1,6 @@
 ---
 name: om-google-optimization
-description: Nightly performance optimization of a single Google Ads property by an optimizer agent — read campaign performance from BigQuery, evaluate it against the property's documented goals, and make bounded live adjustments (manual bids, smart-bidding targets, keywords, negatives, targeting, budget reallocation and pacing) within the property's autonomy level, then document every decision for the weekly reviewer. Use this whenever an optimizer agent runs its optimization cycle or needs to decide and apply changes to a live Google Ads account. New-campaign creation lives in `om-google-campaign-creation`; permission ceilings live in `om-autonomy-levels`.
+description: Nightly performance optimization of a single Google Ads property by an optimizer agent — read campaign performance from Supabase, evaluate it against the property's documented goals, and make bounded live adjustments (manual bids, smart-bidding targets, keywords, negatives, targeting, budget reallocation and pacing) within the property's autonomy level, then document every decision for the weekly reviewer. Use this whenever an optimizer agent runs its optimization cycle or needs to decide and apply changes to a live Google Ads account. New-campaign creation lives in `om-google-campaign-creation`; permission ceilings live in `om-autonomy-levels`.
 ---
 
 # Google Ads — Live Optimization
@@ -17,7 +17,7 @@ escalate.
 
 ## What this skill covers
 
-- Reading and aggregating campaign performance from BigQuery.
+- Reading and aggregating campaign performance from Supabase (`agent_reads` views).
 - Judging performance against the goals in `strategy.md` using a weighted multi-window score.
 - Bounded live adjustments within autonomy: manual bids (`MANUAL_CPC`), smart-bidding
   targets (tCPA/tROAS), keywords and negatives, asset/ad variations, targeting bid
@@ -55,7 +55,7 @@ do not optimize — escalate (operational failures are handled in `HEARTBEAT.md`
 
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
-| `data-sources.md` | Technical wiring: BigQuery dataset, Google Ads `customer_id` / `login-customer-id`, MCP linkage | READ |
+| `data-sources.md` | Technical wiring: Supabase tenant + view prefix, Google Ads `customer_id` / `login-customer-id`, MCP linkage | READ |
 | `client.md` | `autonomy_level` (drives every permission below) | READ (human-owned) |
 | `strategy.md` | The **goal**: target CPA/ROAS, KPIs, intended campaign split | READ (never write) |
 | `budget.csv` | The **monthly ceiling** (sacred) | READ (human-owned) |
@@ -63,7 +63,7 @@ do not optimize — escalate (operational failures are handled in `HEARTBEAT.md`
 | `decision-log.md` | The agent's **own prior decisions** — what was last changed and when (settling) | READ + WRITE |
 | `KI-Wissen/Google` | Current best practice / new features (optional, judgment-informing) | READ |
 
-Pre-flight: the account is reachable; BigQuery has data for the property; **the conversion
+Pre-flight: the account is reachable; Supabase has data for the property; **the conversion
 action is healthy** — Google Ads shows it as recording or merely "no recent conversions",
 the tag is detected, and the status is not *Inactive / Unverified / no tag detected*.
 **Zero conversions is not, by itself, a tracking failure** — at low click volume (see the
@@ -75,15 +75,34 @@ smart bidding blind — do not optimize on it, and escalate. Resolve `customer_i
 
 ---
 
-## Data path: BigQuery to read, Google Ads (MCP) to write
+## Data path: Supabase to read, Google Ads (MCP) to write
 
-- **Read performance from BigQuery** (cost, impressions, clicks, CTR, conversions,
-  conversion value, CPA, ROAS, impression share + lost IS budget/rank, avg CPC, conversion
-  rate) at the levels you need: campaign, ad group, keyword, search term, ad/asset.
-- **Write changes via the Google Ads MCP.** All mutations go through MCP, never BigQuery.
-- **BigQuery lags ~1 day.** Never react to "today"; the freshest bucket is yesterday.
-  And **verify changes via MCP/GAQL, not BigQuery** — a just-made change will not appear in
-  BigQuery until the next export.
+> BigQuery is gone (deleted 2026-09-02). Any instruction anywhere that still names a
+> BigQuery dataset or a `v_<property>_*` view is stale — report it rather than working
+> around it.
+
+- **Read performance from Supabase**, through the property's own scoped role:
+  `~/.supabase-ro/q.sh <tenant> -c "<SQL>"`. Resolve `<tenant>` and the view prefix from
+  `data-sources.md`. The role can see **only** its own `agent_reads.<prefix>_*` views — that
+  is the tenant isolation, not a formality. Never try to reach the raw schema.
+- **Write changes via the Google Ads MCP.** All mutations go through MCP, never SQL.
+- **Verify a change you just made via MCP/GAQL, not Supabase.** GAQL is immediately
+  consistent; Supabase is refreshed once a night (05:15 UTC) and its freshest complete day is
+  **yesterday** — never react to "today". The division of labour: **history and trends from
+  Supabase, point-in-time verification from GAQL.**
+
+### The five views, and what each is for
+
+| View | Read it for |
+| :--- | :--- |
+| `<prefix>_campaign_trends` | **The first read of every run.** 7d/30d per campaign with week-over-week change. |
+| `<prefix>_budget_utilization` | Before **any** budget or bid decision. Carries `budget_stand_vom` — the date of the budget snapshot it used. |
+| `<prefix>_campaign_performance_daily` | Day-by-day, when something in the trends needs explaining. |
+| `<prefix>_search_term_daily` | What people actually typed. The basis for negatives and for harvesting new keywords. |
+| `<prefix>_keyword_performance_daily` | Keyword outcome **joined to that day's bid and quality score** — effect and lever side by side. |
+
+**Amounts in these views are already EUR** (`cost_eur`, `avg_cpc_eur`, `cpc_bid_eur`). The
+underlying tables store micros; you never see them and never convert.
 
 ---
 
@@ -130,7 +149,7 @@ score = Σ (wᵢ × rateᵢ)   over buckets i that pass the significance floor
   **zero conversions despite a sufficient click sample** (a floor — e.g. ≥ 30–50 clicks in
   the window). **Below that click floor, zero conversions is statistical noise on a small
   pilot, not a failure** — it is a normal `RUN — no action`, never an escalation.
-- **No data yet is not a failure.** If the property's BigQuery views return **no rows at all** (the MCC-level Data Transfer has not populated this account yet — normal in the first one to two nights after go-live, and until the first impressions land), that is a benign `RUN — no action`, never a failure or escalation. The `no impressions ≥ 3 days` hard-failure test applies only once the property has at least 3 days of data coverage.
+- **No data yet is not a failure.** If the property's Supabase views return **no rows at all** (the nightly sync has not covered this account yet — normal in the first one to two nights after go-live — or the campaign has never delivered), that is a benign `RUN — no action`, never a failure or escalation. The `no impressions ≥ 3 days` hard-failure test applies only once the property has at least 3 days of data coverage.
 
 ---
 
@@ -180,8 +199,9 @@ verification matter: the autonomy level is the gate, not a per-action human clic
 ## Verify every change
 
 After each mutation, before logging it, verify via the Google Ads MCP (GAQL), **not**
-BigQuery. Use the canonical reads in `gaql-verification-queries.md`. Confirm the new value
-is in place, the resource still has the intended status, and no
+Supabase — the nightly sync will not show the change until tomorrow. Use the canonical
+reads in `gaql-verification-queries.md`. Confirm the new value is in place, the resource
+still has the intended status, and no
 `policy_summary.approval_status` is `DISAPPROVED`. If a mutate returns an error, look it up
 in `common-errors.md`; anything not covered, or any `PROHIBITED` policy topic, is a hard
 stop → escalate (do not retry, do not invent a workaround).
@@ -266,10 +286,10 @@ The `RUN — no action` marker is part of that contract: the reviewer must treat
 
 ## The run sequence
 
-1. **Resolve wiring** from `data-sources.md` (BigQuery dataset, `customer_id`, MCC if any).
+1. **Resolve wiring** from `data-sources.md` (Supabase tenant + view prefix, `customer_id`, MCC if any).
 2. **Read context:** `client.md` (autonomy level), `strategy.md` (goals), `budget.csv`
    (ceiling), `learnings.md`, `decision-log.md` (own history), optionally `KI-Wissen/Google`.
-3. **Pull performance** from BigQuery at the needed levels.
+3. **Pull performance** from Supabase at the needed levels (start with `<prefix>_campaign_trends`).
 4. **Score** each campaign with the weighted multi-window blend; compare to targets; apply
    the tolerance band.
 5. **Drop anything in settling/grace** from the action candidates (but escalate hard failures).

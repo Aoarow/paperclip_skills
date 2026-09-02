@@ -9,7 +9,7 @@ Apply this reference only after the shared property gate and scaffold pass.
 - Use `01_Google Ads` as the Drive channel folder in both execution and reporting.
 - Reuse one Paperclip project per customer × Google Ads:
   `om-<CLIENT>-goog`, where `<CLIENT>` is the established three-letter client code.
-- Never rename the property to satisfy Google Ads or BigQuery syntax. Derive technical
+- Never rename the property to satisfy Google Ads or Postgres syntax. Derive technical
   identifiers separately and record them in `data-sources.md`.
 
 ## Additional property file
@@ -49,27 +49,38 @@ The shared scaffold can be created once the property itself is valid. Before dec
 `activation-ready`, require:
 
 - a confirmed Google Ads CID in `client.md`;
-- the client account linked to the Lexacore MCC (`7807674607`) — a human action; once
-  linked, the MCC-level BigQuery transfer picks up the client's data automatically;
 - conversion tracking reviewed and either verified or recorded as a human action;
-- the MCC-level BigQuery transfer feeding the raw dataset;
-- customer-scoped BigQuery views for the property;
-- the technical bindings and view names recorded in `data-sources.md`;
+- the CID added to the sync's account list and to `GADS_ALLOWED_CUSTOMERS`;
+- the property's five `agent_reads` views created and its scoped read role provisioned;
+- the technical bindings, tenant name and view prefix recorded in `data-sources.md`;
 - a non-empty, human-approved `budget.csv`;
 - a human-completed `strategy.md`.
 
-Derive the BigQuery identifier by replacing every non-alphanumeric character in the
-property name with `_`. This is a technical alias only. Create or verify the established
-customer-scoped views:
+> **MCC linkage is no longer a data prerequisite.** It used to be, because the BigQuery
+> transfer ran at MCC level and only picked up accounts linked beneath it. The Supabase
+> sync calls each account directly, so an independent account works exactly as well —
+> `lexacore.de` (`3010573696`) has always been one. Whether to link a client into the MCC
+> is now purely an access/administration question, not a reporting one.
 
-- `v_<technical_property>_campaign_performance_daily`
-- `v_<technical_property>_campaign_trends`
-- `v_<technical_property>_budget_utilization`
+### Wiring a new property
 
-Filter every view by the confirmed numeric customer ID so customer data cannot mix.
-Run [create_google_views.sql](create_google_views.sql) after substituting its
-`{{PROPERTY}}` and `{{CID}}` placeholders. Review the rendered SQL before execution and
-verify all three views are customer-scoped after creation.
+1. **Add the account to the sync.** In `google_ads_sync.py`, extend `ACCOUNTS` with
+   `(customer_id, login_customer_id_or_None)`. **The header rule is not cosmetic:** an
+   account under the MCC needs `login-customer-id`; an independent account must **not**
+   have it, or Google answers `403 USER_PERMISSION_DENIED`.
+2. **Choose a tenant name and a view prefix** (lowercase, `a-z0-9_`). Convention so far:
+   `lexacore_ai` / `lxai`, `lexacore_de` / `lxde`.
+3. **Create the five views** from
+   [create_google_views.sql](create_google_views.sql) after substituting `{{PREFIX}}` and
+   `{{CID}}`. Review the rendered SQL before running it.
+4. **Provision the read role:**
+   `~/.supabase-ro/provision-tenant-db-user.sh --channel google <tenant> <prefix> property`
+   then apply the printed `ALTER ROLE` as a role-capable user.
+5. **Verify:** `~/.supabase-ro/q.sh <tenant> --check` must exit 0 — and run it **as the
+   service user** (`sudo -u paperclip`), not as yourself.
+
+Every view is filtered on the confirmed numeric customer ID so customer data cannot mix;
+the read role can see only its own prefix. Both are checked by `--check`.
 
 ## Paperclip project and agents
 
@@ -87,7 +98,7 @@ paused state after creation.
 
 ## Gate and handoff
 
-When the website analysis, strategy, budget, tracking, CID/MCC, and BigQuery wiring are
+When the website analysis, strategy, budget, tracking, CID, and Supabase wiring are
 complete, request the established human approval/gate for launch readiness. An approval
 does not enable agents or campaigns.
 

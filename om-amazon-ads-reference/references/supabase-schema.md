@@ -1,6 +1,8 @@
 # Supabase Data Layer — `amazon_ads_raw` (and the `public` join targets)
 
-The **measured truth** for Amazon. Agents read performance from here, never from the Ads API directly (the Ads API is write-only for our agents). The Supabase project ID, region, and connection details are **not** in this skill — they live in the property's `data-sources.md` and the secret store. Ingestion: Airbyte daily (Amazon Ads API → `amazon_ads_raw`), cron `0 0 5 * * ? UTC`. See `project_amazon_paperclip/Airbyte.md` / `Supabase.md`.
+The **measured truth** for Amazon. Agents read performance from here, never from the Ads API directly (the Ads API is write-only for our agents). The Supabase project ID, region, and connection details are **not** in this skill — they live in the property's `data-sources.md` and the secret store. Ingestion: `/home/alex/.amazon-ads-sync/ads_sync.py`, nightly at 05:00 UTC via cron under `cron_guard.py`.
+
+> **Corrected 2026-09-02: this is no longer Airbyte.** `ads_sync.py` (Python stdlib + `psql`, its own header calls it *"Airbyte-Ersatz"*) replaced it. Any document still describing an Airbyte source or the cron `0 0 5 * * ? UTC` is stale. The Airbyte-era column and type quirks below are still real — they are baked into the existing tables — but there is no Airbyte to reconfigure. Google's layer was built without them; see `om-google-ads-reference/references/supabase-schema.md`.
 
 > Verified live on 2026-06-15 via the Supabase MCP. When the streams or schema change, regenerate this file from the live DB — do not hand-edit drift in.
 
@@ -8,7 +10,7 @@ The **measured truth** for Amazon. Agents read performance from here, never from
 
 | Group | Sync mode | Tables | RLS behaviour |
 |---|---|---|---|
-| **Catalog** (configuration / current state) | `full_refresh_overwrite` — dropped & recreated each sync | `profiles`, `sponsored_product_campaigns`, `sponsored_product_ad_groups`, `sponsored_product_keywords`, `sponsored_product_negative_keywords`, `sponsored_product_targetings` | **RLS resets to disabled on every sync** (table is recreated) — see Security below |
+| **Catalog** (configuration / current state) | `full_refresh_overwrite` — **`TRUNCATE` + reload**, table not recreated | `profiles`, `sponsored_product_campaigns`, `sponsored_product_ad_groups`, `sponsored_product_keywords`, `sponsored_product_negative_keywords`, `sponsored_product_targetings` | RLS **persists** — see Security below |
 | **Reports** (daily time-series) | `incremental_deduped_history` (Append + Deduped) | `sponsored_products_campaigns_report_stream_daily`, `sponsored_products_keywords_report_stream_daily`, `sponsored_products_targets_report_stream_daily` | RLS persists (table not recreated) |
 
 Report streams use dedup (not plain append) because the Amazon source re-fetches a 3-day `look_back_window` each sync; dedup on the primary key updates those rows in place instead of duplicating.
@@ -51,7 +53,7 @@ All four carry the same metric block (per `reportDate`): `impressions`, `clicks`
 The report streams carry `campaignId` / `campaignName` but **no `asin` column**, and no ad-level (product-ad) stream is ingested yet. So Amazon performance cannot join to `public.products` on ASIN directly. Two paths:
 
 1. **Via the naming convention (available now):** ASIN is the 2nd field of `campaignName` (manifest §6: `[ACCOUNT]-[ASIN]-…`). Parse it out (`split_part(..., '-', 2)`) — this is why the rigid nomenclature is load-bearing for reporting, not just tidiness.
-2. **Via an ad-level stream (cleaner, later):** add the Sponsored Products **product-ad** stream to Airbyte to get `campaignId → adId → asin` natively, removing the parser dependency.
+2. **Via an ad-level stream (cleaner, later):** add the Sponsored Products **product-ad** stream to `ads_sync.py` (a new entity stream, next to `s_campaigns` etc.) to get `campaignId → adId → asin` natively, removing the parser dependency. *(This step used to read "add it to Airbyte" — there is no Airbyte any more.)*
 
 Until path 2 exists, the `public` views rely on path 1 — so a campaign that violates the naming convention silently drops out of ASIN-level reporting.
 
@@ -132,4 +134,4 @@ Total (organic **+** ad) revenue per ASIN per day, from the **Selling Partner AP
 
 ## Security — RLS state (surface, do not auto-fix)
 
-As of 2026-06-15 the 6 **catalog** tables have **RLS disabled** (the report streams have it enabled). This is the documented "RLS resets on `full_refresh_overwrite`" issue (`Airbyte.md`): each sync recreates the catalog tables and drops the `ENABLE ROW LEVEL SECURITY` flag. These tables hold no policies and are intended for service-role / direct-Postgres access only — but with RLS off they are reachable by the `anon`/`authenticated` keys. The standing TODO (Airbyte.md) is to **automate re-applying RLS after each sync** (Postgres event trigger or a post-sync step). Re-apply SQL lives in `Airbyte.md`. Do not enable RLS without policies blindly — coordinate with whoever owns the Supabase frontend access model.
+**Corrected 2026-09-02 — the RLS-reset problem no longer exists.** It was real under Airbyte, which dropped and recreated each catalog table on every sync and lost the `ENABLE ROW LEVEL SECURITY` flag with it. `ads_sync.py` does not: `load_overwrite()` runs `begin; truncate table …; \copy …; commit;`, and `TRUNCATE` preserves the table along with its RLS setting. Verified live on 2026-09-02: **all tables in `amazon_ads_raw` report `rls_enabled = true`**, catalog tables included. The standing TODO to re-apply RLS after each sync is therefore closed — do not build that automation. These tables still hold no policies and remain service-role / direct-Postgres only; agents read the `agent_reads` views, never these tables.

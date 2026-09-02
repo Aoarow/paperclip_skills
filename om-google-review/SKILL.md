@@ -1,6 +1,6 @@
 ---
 name: om-google-review
-description: Weekly outcome review of a single Google Ads property by the Reviewer agent — read the decision-log of every worker agent on the property (for lexacore.ai currently just the Optimizer), measure the ~14-day impact of each decision against the property's goals using fresh data from BigQuery, judge whether each decision was justified AND stayed inside its autonomy ceiling, and distil the durable lessons into learnings.md (the file every worker agent reads at the start of its next run). Use whenever the Reviewer agent runs its weekly cycle. The Reviewer never touches the ad account — it writes learnings and escalates; account changes belong to the worker agents within their autonomy. This is the reference review method for every channel; a channel-specific reviewer (om-amazon-review, …) mirrors its structure.
+description: Weekly outcome review of a single Google Ads property by the Reviewer agent — read the decision-log of every worker agent on the property (for lexacore.ai currently just the Optimizer), measure the ~14-day impact of each decision against the property's goals using fresh data from Supabase, judge whether each decision was justified AND stayed inside its autonomy ceiling, and distil the durable lessons into learnings.md (the file every worker agent reads at the start of its next run). Use whenever the Reviewer agent runs its weekly cycle. The Reviewer never touches the ad account — it writes learnings and escalates; account changes belong to the worker agents within their autonomy. This is the reference review method for every channel; a channel-specific reviewer (om-amazon-review, …) mirrors its structure.
 ---
 
 # Google Ads — Weekly Review
@@ -44,7 +44,7 @@ decision* section). This skill is the *reader* of that contract; keep the two in
 
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
-| `data-sources.md` | Technical wiring: BigQuery dataset, Google Ads `customer_id` — how to pull outcomes | READ |
+| `data-sources.md` | Technical wiring: Supabase tenant + view prefix, Google Ads `customer_id` — how to pull outcomes | READ |
 | `decision-log.md` | Every worker decision in the review window (~last 14 days), each with its baseline | READ |
 | `strategy.md` | The goals to judge against: target CPA/ROAS, KPIs, intended campaign split | READ (never write) |
 | `client.md` | Account/property context + the `autonomy_level` each decision had to stay within | READ (human-owned) |
@@ -52,18 +52,38 @@ decision* section). This skill is the *reader* of that contract; keep the two in
 | `learnings.md` | Its own prior lessons: don't repeat them, and track whether they held | READ + WRITE |
 | `om-autonomy-levels` | The ceiling each decision is checked against (channel-agnostic) | READ (skill) |
 
-If a required document is missing or BigQuery is unreachable, do **not** invent a review —
+If a required document is missing or Supabase is unreachable, do **not** invent a review —
 stop and escalate (operational failures are handled in `HEARTBEAT.md`).
 
 ---
 
-## Outcome data: read from BigQuery
+## Outcome data: read from Supabase
 
-- **Measure outcomes from BigQuery** — the same rate metric the decision targeted (CPA, ROAS,
-  CTR, conversion rate), over a window comparable to the decision's baseline window.
-- **BigQuery lags ~1 day.** The freshest bucket is yesterday; never measure "today".
-- Outcome data is the channel-specific input. On Amazon the equivalent source is Supabase; the
-  *method* below is identical, only the table you read changes.
+- **Measure outcomes from Supabase** — the same rate metric the decision targeted (CPA, ROAS,
+  CTR, conversion rate), over a window comparable to the decision's baseline window. Read
+  through the property's scoped role: `~/.supabase-ro/q.sh <tenant> -c "<SQL>"`.
+- **The sync runs nightly (05:15 UTC); the freshest complete day is yesterday.** Never
+  measure "today".
+- Outcome data is the channel-specific input. Amazon reads the same way from its own
+  `agent_reads` views; the *method* below is identical, only the view you read changes.
+
+### You now have a second baseline source — use it
+
+`decision-log.md` remains the primary baseline: it is the writer↔reader contract. But the
+Google property also carries **daily configuration snapshots**:
+
+| Snapshot view/table | What it pins down |
+| :--- | :--- |
+| `<prefix>_budget_utilization` → `budget_stand_vom` | the daily budget as it stood on a given date |
+| `<prefix>_keyword_performance_daily` → `cpc_bid_eur`, `quality_score` | the bid and quality score **on the day of each measurement** |
+
+This matters because it is **independent of the agent being reviewed**. Where a decision-log
+entry and a snapshot disagree about the pre-change value, say so plainly and treat the
+snapshot as the stronger evidence — a worker agent recording its own baseline is the one
+place in the loop with no second witness.
+
+**These snapshots only exist from 2026-09-02 onwards.** For anything earlier, the
+decision-log is the only source; that is a known, permanent gap, not a hygiene failure.
 
 ---
 
@@ -75,8 +95,8 @@ settling cannot yet be judged — record it as "still settling, re-check next we
 1. **Recover the baseline** from the decision-log entry. Every entry carries its pre-change
    values — that is the writer↔reader contract. No baseline → you cannot judge it; flag the
    missing baseline as a decision-log hygiene issue.
-2. **Measure the outcome** from BigQuery: the same metric, after the change, over a comparable
-   window (respect the ~1-day lag).
+2. **Measure the outcome** from Supabase: the same metric, after the change, over a comparable
+   window (the freshest complete day is yesterday).
 3. **Judge the outcome** — helped / hurt / neutral — against the target in `strategy.md` *and*
    against the decision's own stated hypothesis. Use the same significance discipline as the
    optimizer's scoring: do not draw a conclusion from a near-empty sample. "No clear signal
@@ -147,7 +167,7 @@ delete the *history* of a genuine past lesson; mark it superseded.
 3. **Open the dated review run issue**, assigned to self, and check it out.
 4. **Read context:** `data-sources.md` (wiring), `decision-log.md` (the window), `strategy.md`
    (goals), `client.md` (autonomy level), `budget.csv` (ceiling), prior `learnings.md`.
-5. **Pull outcome data** from BigQuery for each decision's metric and window.
+5. **Pull outcome data** from Supabase for each decision's metric and window.
 6. **Apply the review method** per decision; synthesise the cross-decision patterns.
 7. **Write one dated `learnings.md` entry** (append at start; re-read to confirm history
    survived). **Escalate** any systemic finding — broken tracking, a strategy mismatch, a
@@ -178,7 +198,9 @@ delete the *history* of a genuine past lesson; mark it superseded.
   decision to score). Keep the two in step.
 - `om-autonomy-levels` — the permission ceilings each decision is checked against.
 - `om-google-ads-reference` → `gaql-verification-queries.md` — canonical reads if an outcome
-  must be confirmed against the live account rather than BigQuery.
+  must be confirmed against the live account rather than Supabase.
+- `om-google-ads-reference` → `supabase-schema.md` — the views, their columns, and the
+  conventions that bite.
 - `lx-paperclip-inbox-cycle` — run / close / escalation mechanics.
 - `lx-gdrive-structure` → `lx-gdrive-onlinemarketing` — Drive schema and read/write rules.
 

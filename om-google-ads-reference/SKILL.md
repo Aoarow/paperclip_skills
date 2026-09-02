@@ -32,6 +32,7 @@ Load only the file you need (progressive disclosure); do not read them all up fr
 - `references/bidding-strategies.md` — bidding-strategy fields, compatibility matrix, conversion-data thresholds, migration path.
 - `references/gaql-verification-queries.md` — canonical post-mutation verification queries per campaign type.
 - `references/common-errors.md` — error-code lookup with remediation steps.
+- `references/supabase-schema.md` — the Supabase data layer: the five `agent_reads` views an agent reads, the per-account `login-customer-id` rule, and the two Postgres division traps in every ratio. Replaces the retired BigQuery layer.
 
 ## Maintenance
 This is the contract layer — it changes when the Google Ads API changes, and is edited by
