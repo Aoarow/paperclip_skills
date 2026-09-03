@@ -154,6 +154,29 @@ Create a sub-issue for the chosen subordinate (Step 7), then set *this* issue to
 `in_progress` end-of-run state, because a child is now actively assigned downward. When
 the sub-issue is resolved and I have reviewed the result, I close this issue `done`
 (outcome a).
+
+🔴 **Two ways this goes wrong — both observed on 2026-09-03, both cost a recovery
+escalation each.** The exception above is narrow: the child must be **actively assigned**
+and it must go **downward**. Check both before you set `in_progress`.
+
+| Mistake | What it actually is | Do this instead |
+| :--- | :--- | :--- |
+| Child created and assigned to my **supervisor** | An escalation wearing a delegation's clothes | Escalate properly (6b): reassign **this** issue upward. Do not create a child. |
+| Child created with **no assignee** | No active child exists, so the parent has no disposition | Set `assigneeAgentId` in the create call. A child without an assignee is not a delegation. |
+
+**You cannot repair a delegation after you create it.** A `PATCH` or even a `comment` on a
+child that is assigned to another agent returns
+`403 Issue is outside this actor's authorization boundary`. The only remedy is to escalate
+to a supervisor and ask them to cancel and re-create it — which costs several runs for what
+is usually a typo. So: **verify the payload before the create call, not after.** Any list of
+resource names, IDs or counts you hand down gets a read-back **first**; a wrong list does not
+become right by being passed through escalation levels.
+
+**One card, one reversible action.** A card that bundles several unrelated changes cannot
+fail in isolation: one unfinished item holds the whole card open, and an open card with no
+valid disposition feeds the recovery loop. On 2026-09-03 six of seven items succeeded in a
+single run, and the seventh kept the parent alive through eight agent runs. Split by action,
+not by topic.
 ```
 run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"in_progress\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
