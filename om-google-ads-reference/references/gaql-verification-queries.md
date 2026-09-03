@@ -10,6 +10,29 @@ Each section lists:
 2. The fields to verify and what each one should equal.
 3. Failure modes — what the value will look like if something is wrong.
 
+### Date literals in `DURING`
+
+`DURING` accepts only these twelve literals. Anything else — most commonly `LAST_90_DAYS`,
+which does not exist — fails with `INVALID_VALUE_WITH_DURING_OPERATOR`, not with an empty
+result. For any other window use an explicit range:
+`WHERE segments.date BETWEEN '2026-06-05' AND '2026-09-03'`.
+
+```
+TODAY                 YESTERDAY             LAST_7_DAYS           LAST_14_DAYS
+LAST_30_DAYS          LAST_BUSINESS_WEEK    THIS_MONTH            LAST_MONTH
+THIS_WEEK_SUN_TODAY   THIS_WEEK_MON_TODAY   LAST_WEEK_SUN_SAT     LAST_WEEK_MON_SUN
+```
+
+### Two selectability traps
+
+Not every field that exists on a resource may appear in `SELECT`:
+
+- **Message fields are not selectable, their leaves are.** `asset_group_signal.audience` and
+  `ad_group_criterion.listing_group.case_value` both fail with *"may not be used in SELECT
+  clause"*. Select the leaf instead — `…audience.audience`, `…case_value.product_type.value`.
+- **`campaign_asset` requires `campaign.id` in the `SELECT`** when you filter on it, otherwise
+  the query is rejected with *"must be present in SELECT clause"*. Other resources do not.
+
 ## 1. Campaign-level verification (all types)
 
 ```sql
@@ -25,8 +48,8 @@ SELECT
   campaign.maximize_conversion_value.target_roas,
   campaign.target_cpa.target_cpa_micros,
   campaign.target_roas.target_roas,
-  campaign.start_date,
-  campaign.end_date,
+  campaign.start_date_time,
+  campaign.end_date_time,
   campaign.network_settings.target_google_search,
   campaign.network_settings.target_search_network,
   campaign.network_settings.target_content_network,
@@ -179,7 +202,8 @@ Verify: every intended asset group exists; `ad_strength = EXCELLENT`; `primary_s
 SELECT
   asset_group.name,
   asset_group_asset.field_type,
-  asset_group_asset.performance_label,
+  asset_group_asset.primary_status,
+  asset_group_asset.primary_status_reasons,
   asset_group_asset.policy_summary.approval_status,
   asset.id,
   asset.type,
@@ -209,7 +233,8 @@ Count check — group the results by `field_type` and confirm counts meet the mi
 SELECT
   asset_group.name,
   asset_group_signal.audience.audience,
-  asset_group_signal.audience
+  asset_group_signal.search_theme.text,
+  asset_group_signal.approval_status
 FROM asset_group_signal
 WHERE campaign.id = {campaign_id}
 ```
@@ -220,8 +245,9 @@ Verify: signals are attached and resolve to real audience resources.
 
 ```sql
 SELECT
+  campaign.id,
   campaign_asset.field_type,
-  asset.business_name_asset.name,
+  asset.text_asset.text,
   asset.image_asset.full_size.width_pixels,
   asset.image_asset.full_size.height_pixels
 FROM campaign_asset
@@ -278,7 +304,9 @@ SELECT
   ad_group.name,
   ad_group_criterion.criterion_id,
   ad_group_criterion.listing_group.type,
-  ad_group_criterion.listing_group.case_value,
+  ad_group_criterion.listing_group.case_value.product_type.value,
+  ad_group_criterion.listing_group.case_value.product_brand.value,
+  ad_group_criterion.listing_group.case_value.product_item_id.value,
   ad_group_criterion.listing_group.parent_ad_group_criterion,
   ad_group_criterion.cpc_bid_micros,
   ad_group_criterion.negative
