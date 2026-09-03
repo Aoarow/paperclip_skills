@@ -153,6 +153,14 @@ The API moved to monthly releases in January 2026. Drift problems show up as:
 | `RequestError.UNKNOWN`                                 | Field used that doesn't exist in the requested version             | Pin the API version explicitly; do not rely on the client library default               |
 | `FieldMaskError.FIELD_NOT_FOUND`                       | Update mask references a deprecated or moved field                  | Check the release notes for the version; refactor the mask                              |
 | `CallAd` / `CallAdInfo` references in v23+            | Removed in v23                                                     | Use call assets via `CallAsset` resource instead                                        |
+| `QueryError.UNRECOGNIZED_FIELD` on `campaign.start_date` / `campaign.end_date` | Both removed in v23 | Use `campaign.start_date_time` / `campaign.end_date_time` (datetime, not date) |
+| `QueryError.UNRECOGNIZED_FIELD` on `campaign.conversion_goal_campaign_config.*` | The whole sub-message is gone from `Campaign` in v23 | Query the `campaign_conversion_goal` resource instead — see GAQL reference §9 |
+| `QueryError.INVALID_VALUE_WITH_DURING_OPERATOR` | A date literal that does not exist, almost always `LAST_90_DAYS` | Use one of the twelve valid literals, or `segments.date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'` |
+| `CampaignError.CANNOT_SET_CAMPAIGN_KEYWORD_MATCH_TYPE` | `campaign.keyword_match_type` set while AI Max is enabled | Leave it unset — AI Max supersedes it. See `references/ai-max.md` |
+| `QueryError.UNRECOGNIZED_FIELD` on `asset_group_asset.performance_label` | Removed in v23 | Use `asset_group_asset.primary_status` and `primary_status_reasons` |
+| `QueryError.UNRECOGNIZED_FIELD` on `asset.business_name_asset.*` | No such asset type — `BUSINESS_NAME` is a plain text asset | Select `asset.text_asset.text` and filter on `field_type = 'BUSINESS_NAME'` |
+| `QueryError` *"may not be used in SELECT clause"* | A message field selected instead of its leaf (`asset_group_signal.audience`, `listing_group.case_value`) | Select the leaf: `…audience.audience`, `…case_value.product_type.value` |
+| `QueryError` *"must be present in SELECT clause: campaign.id"* | `campaign_asset` filtered on `campaign.id` without selecting it | Add `campaign.id` to the `SELECT` — this resource is stricter than the others |
 
 ## Reading partial-failure responses
 

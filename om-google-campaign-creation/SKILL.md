@@ -32,13 +32,14 @@ If a request asks for any of the above, stop and hand back to the human with a c
 Run through these checks before issuing a single mutate. Skipping them is the most common source of failed campaign launches.
 
 1. **Customer ID resolved.** You know the exact `customer_id` (10-digit, no dashes) of the advertising account. If managing under an MCC, also set `login-customer-id`.
-2. **Conversion tracking confirmed.** At least one primary conversion action exists and has received conversions in the last 30 days. Without this, smart bidding strategies will not function. Query `conversion_action` to verify.
+2. **Conversion tracking confirmed — configured is not confirmed.** Exactly one action has `primary_for_goal = true`, every other enabled action has `include_in_conversions_metric = false`, and the primary action **has actually recorded conversions**. Query `conversion_action` with a date range to verify; an action that has never fired is not tracking, and no conversion-based bidding strategy will work against it. If it has never fired, say so and pick a cold-start strategy — do not treat the field values as proof.
 3. **Budget decided.** Daily budget amount, currency, and whether it is shared. New campaigns should start with a dedicated (non-shared) budget unless explicitly told otherwise.
 4. **Bidding strategy decided.** See "Bidding strategies" below — it must be appropriate for the campaign type and the campaign's data state (new campaigns rarely qualify for `TARGET_ROAS` from day one).
-5. **Targeting decided.** Geographic locations, languages, network settings, audience signals, ad schedule.
+5. **Targeting decided.** Geography (radius vs. administrative region — see "Cold start"), positive geo target type, language, network settings, audience signals. New campaigns get **no** ad schedule.
 6. **Assets ready.** For every campaign type that consumes creative, the required text and media assets are available and meet the spec (character limits, image dimensions, video durations). See "Asset quality & ad strength".
 7. **Final URL(s) confirmed.** All landing pages return 200, are mobile-friendly, and match the offer described in the ad copy. The final URL domain must align with the advertiser's verified domain.
-8. **Naming convention.** Follow the property's established naming convention (typically embedded in the property's `learnings.md`). If none exists, use `[Brand] | [Campaign Type] | [Audience/Geo] | [YYYY-MM]`.
+8. **Launch gates read and answered.** Open the property's `strategy.md` and `data-sources.md` and list every documented precondition with its state. A gate that is still active does not block *building* — everything is created `PAUSED` anyway — but it does block the recommendation to enable, and it must appear by name in the handover. A gate is never satisfied by not having noticed it.
+9. **Naming convention.** Follow the property's established naming convention (typically embedded in the property's `learnings.md`). If none exists, use `[Brand] | [Campaign Type] | [Audience/Geo] | [YYYY-MM]`.
 
 If any check fails, stop and surface the gap — do not invent a workaround.
 
@@ -105,6 +106,48 @@ The workhorse for capturing existing demand. Modern Search campaigns use only Re
 Aim for the full 15 headlines and 4 descriptions. Pin sparingly — pinning reduces the asset-combination space that Google's optimisation operates over. A reasonable default is to pin one brand headline to `HEADLINE_1` and leave everything else unpinned.
 
 Target **"Excellent" Ad Strength** before saving. If the strength is "Average" or below, surface this to the human rather than proceeding.
+
+**Assets are part of the build, not a follow-up.** A Search campaign without sitelinks,
+callouts and structured snippets is incomplete and must not be handed over. Minimums, the exact
+character limits, the fixed structured-snippet header list, and the account/campaign/ad-group
+level hierarchy are in `om-google-ads-reference/references/search-assets-spec.md`. Two rules that
+decide where the work goes:
+
+- **Build the evergreen set once at account level** (`customer_asset`) — callouts, snippets, call
+  asset. Every future campaign inherits it. Override per campaign only where the message really
+  differs, which is usually just sitelinks.
+- **Every sitelink needs its own real final URL.** Not an RSA display path — those are cosmetic
+  and point at nothing. A sitelink to a 404 is a hard defect.
+
+**Negatives are built in three levels, not one list.** Universal junk goes in an
+`ACCOUNT_LEVEL_NEGATIVE_KEYWORDS` shared set (applies account-wide with no link to forget);
+reusable intent exclusions in a `NEGATIVE_KEYWORDS` shared set linked per campaign;
+client-specific terms on the campaign. Negatives match **no** close variants — singular and plural
+are two entries. See `om-google-ads-reference/references/negative-keywords-spec.md`.
+
+**One conversion action per business outcome — never per campaign.** Google attributes every
+conversion to the campaign that earned the click, so separate actions are never needed for
+reporting. Override `campaign_conversion_goal` only when a campaign demonstrably pursues a
+different action type. Before building: verify exactly one action has `primary_for_goal = true`
+and that every other enabled action has `include_in_conversions_metric = false`.
+
+**No ad schedule on a new campaign.** Time restriction is a data-driven lever, and set before
+data it prevents exactly the data that would justify it — an excluded hour produces no evidence
+that it should have been excluded, so the mistake is invisible. It also saves nothing: the daily
+budget is the cap, not the clock; fewer hours mean fewer auctions to spend it in. Check it only
+once there is meaningful click volume per bucket, which on small budgets never happens at the
+hour level (168 buckets). **The ad schedule has no calendar** — `AdScheduleInfo` is `day_of_week`
+plus hours only. Holidays and date ranges are a start/end date, a pause, or a
+`BiddingSeasonalityAdjustment`; they are never an ad schedule. *Exception:* assets carrying a
+service promise (call assets above all) get `ad_schedule_targets` from day one, derived from
+actual staffing rather than performance.
+
+**AI Max stays off on a new campaign.** `campaign.ai_max_setting.enable_ai_max` defaults to
+`false` — leave it there. AI Max widens matching, creative, and landing pages at once, which a
+campaign with no performance history cannot be judged against. It is a later, separate, human
+decision once conversion data exists; the preconditions and fields are in
+`om-google-ads-reference/references/ai-max.md`. Do not set `campaign.keyword_match_type`
+alongside it.
 
 ### Performance Max campaigns
 
@@ -220,6 +263,41 @@ When the strength falls short, do not lower the bar — surface it back to the h
 
 ---
 
+## Cold start: a campaign with no conversion history
+
+A brand-new campaign in a brand-new account is not a small version of a mature one. Three
+decisions differ, and getting them wrong is the most common way a launch produces nothing.
+
+**Bidding.** Conversion-based strategies need a signal to learn from. An account with zero
+recorded conversions gives them none — the campaign sits in `BIDDING_STRATEGY_LEARNING`
+indefinitely. Start on `TARGET_SPEND` (maximise clicks) with a CPC ceiling, or `MANUAL_CPC`.
+Graduate to conversion-based bidding once the property has meaningful monthly conversion volume;
+the thresholds are in `references/bidding-strategies.md`. A configured-but-never-fired conversion
+action is **not** a signal.
+
+**Budget against the real click price.** Query the keyword planner for top-of-page bids on the
+head terms before setting the budget, and compare. A daily budget below the price of a single
+top-of-page click cannot compete, whatever the bidding strategy says. Google computes the monthly
+charging limit as **daily budget × 30.4** — always state the derived monthly figure and check it
+against the property's `budget.csv` ceiling. Halving or doubling that figure by dividing by 30 or
+60 is a real and repeated error.
+
+**Reach must be large enough to spend the budget.** The instinct on a small budget is to narrow
+the geography. That is right only when demand exceeds budget. When it does not — thin B2B niches,
+local service terms — narrowing starves the campaign of the impressions it needs to spend
+anything. Size the target area by measured search volume against the affordable click count, not
+by intuition. Administrative boundaries are a poor proxy for a catchment area: prefer a
+`ProximityInfo` radius around the business over a state or region, which will include distant
+cities and exclude near ones. Pair any local targeting with positive geo target type
+**`PRESENCE`**, not `PRESENCE_OR_INTEREST`.
+
+**Match types.** Exact and phrase on a thin niche capture a fraction of an already small pool, and
+individually enumerated long-tail keywords in such niches usually carry zero volume. Broad match
+on the two or three load-bearing terms, paired with a tight negative net and a weekly search-term
+review, is the better shape. Broad match without that review is not.
+
+---
+
 ## The PAUSED handover convention
 
 This is the central safety rail of this skill. **Every campaign created by an agent must be in `PAUSED` status at the moment the create-call completes.** No exceptions.
@@ -229,14 +307,51 @@ Concretely:
 - Ad groups and ad group ads shall be created in `ENABLED` status (inside a paused campaign they cannot serve anyway). This is the standard pattern — it means activation requires only one action by the human: flipping the campaign itself.
 - Do not call any update operation that changes a campaign's status to `ENABLED`, even if the human's request appears to authorise it. Activation is a deliberate human action in the UI.
 
-The handover message to the human should always include:
-1. The campaign name and resource ID.
-2. A direct link to the campaign in the Google Ads UI:
-   `https://ads.google.com/aw/campaigns?campaignId={CAMPAIGN_ID}&__c={CUSTOMER_ID}`
-3. A bullet list of what was created (budget, campaign, ad groups, ads / asset groups, keywords / audience signals).
-4. The Ad Strength on every ad / asset group.
-5. Any pre-flight concern that was overridden or any spec that fell short of the ideal.
-6. The explicit next step: "Review and click **Enable** to activate."
+### The handover has two parts, and the message is the second
+
+First the **structural handoff**: set the issue's **assignee** *and* its **status**
+(`lx-paperclip-inbox-cycle`). A message without a reassignment is not a handover — it is a note
+in a dead-end issue. Never use a comment, and never `blocked`, to move work to a human.
+
+### The message must be able to say something bad
+
+A summary that can only describe success is not a check. The message is the last point at which a
+human sees the campaign before being asked to enable it, so it reports the build **against its
+requirements**, not merely its contents. Every block is written out even when empty — an omitted
+block reads as "fine", and absence is exactly what goes unnoticed.
+
+Four mandatory blocks:
+
+**1. Gates — each one answered individually.** Every precondition from the property's
+`strategy.md` and `data-sources.md`, listed by name with its state. A launch gate that is still
+active is stated as still active. This must be a list to be answered, not a prompt to recall
+concerns: the gate that gets missed is the one nobody experienced as an override.
+
+**2. What was built, each figure beside the value it is measured against.** A bare number
+carries no judgement; a number next to its reference does.
+
+```
+Budget 3.33 €/day        ⚠ = 101 €/month (× 30.4) · budget.csv ceiling: 200 €
+Bidding MAXIMIZE_CONVERSIONS  ⚠ 0 conversions on record
+4 RSAs, 15/4 each        ⚠ 1 × AVERAGE (target: EXCELLENT)
+Sitelinks                ⚠ NONE
+Callouts                 ⚠ NONE
+```
+
+Include the counts that can be zero — assets by type, negatives, shared-set links. A list of what
+happened will never mention what did not.
+
+**3. Deliberately not done, with the reason.** No ad schedule, AI Max off, no audiences. Without
+this the human cannot tell a decision from an oversight.
+
+**4. The read-back values, not the claim.** Report what the verification GAQL actually returned —
+campaign status, serving status, approval counts, network settings. "Verified ✓" is worth
+nothing; the values are the evidence.
+
+Then the campaign name and ID, a direct link
+(`https://ads.google.com/aw/campaigns?campaignId={CAMPAIGN_ID}&__c={CUSTOMER_ID}`), and **one**
+explicit next step naming the person who owns it. If a gate is open, the next step is that gate —
+not "review and enable".
 
 ---
 
@@ -255,6 +370,11 @@ These are the failure modes that come up most often. Check each one before submi
 - **Not setting `url_expansion_opt_out` on PMax.** The default is opt-in, which lets Google expand to new URLs on the domain — sometimes desirable, often not. Decide explicitly.
 - **Silent API version drift.** Google moved to a monthly API release cadence in 2026. Pin the API version in the client config — never rely on the library default.
 - **Creating campaigns in `ENABLED` status.** Violates the handover convention. Campaigns always `PAUSED`.
+- **Building a Search campaign with no assets.** Sitelinks, callouts and structured snippets are part of the build. A campaign without them is not ready for handover.
+- **Launching past an active gate in `strategy.md`.** A documented launch block (unconfirmed conversion tracking, missing approval) is not advisory. Build, leave `PAUSED`, and name the gate in the handover.
+- **Deriving the daily budget by dividing the monthly ceiling by 30 or 60.** Google's monthly limit is daily × 30.4. Always state the derived monthly figure next to the ceiling.
+- **Copying a sibling property's numbers.** Budgets, geo targets and `login-customer-id` are per property. A value that is correct next door is not evidence it is correct here.
+- **Single-form negative keywords.** Negatives match no close variants; `kurs` does not block "kurse". Enter every relevant inflection.
 
 ---
 
@@ -291,6 +411,9 @@ For deeper detail on any of the following, load the corresponding reference file
 - `om-google-ads-reference/references/shopping-listing-groups.md` — product partition tree construction.
 - `om-google-ads-reference/references/bidding-strategies.md` — extended decision tree for picking a bidding strategy, including the conversion-data thresholds for each target-based strategy.
 - `om-google-ads-reference/references/gaql-verification-queries.md` — the canonical post-create verification queries for each campaign type.
+- `om-google-ads-reference/references/ai-max.md` — AI Max for Search: enable switch, automation opt-outs, generated-text guardrails, preconditions.
+- `om-google-ads-reference/references/search-assets-spec.md` — Search assets: verified character limits, the fixed snippet header list, price/call assets, level hierarchy, measurement queries.
+- `om-google-ads-reference/references/negative-keywords-spec.md` — negative keywords: no-close-variants rule, the three-level structure, limits, link verification.
 - `om-google-ads-reference/references/common-errors.md` — error-code lookup with remediation steps.
 
 These are loaded on demand. Do not read them up front — read only when the current task touches their subject.

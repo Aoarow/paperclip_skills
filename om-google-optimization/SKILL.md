@@ -33,6 +33,7 @@ escalate.
 - **Change `strategy.md` or `budget.csv`.** Both are read-only inputs here. Durable plan
   changes are escalated to Peggy to be written into `strategy.md`.
 - **Raise the property's total monthly budget.** Never. Escalate.
+- **Enable AI Max or change asset automation.** Always a human decision, at every autonomy level (see `om-autonomy-levels`). The fields and preconditions are in `om-google-ads-reference/references/ai-max.md`.
 - **Reporting.** The monthly report is Peggy's; outcome review is the reviewer's.
 
 If a request or a finding falls into the above, stop and escalate with a clear note.

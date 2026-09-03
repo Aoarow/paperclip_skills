@@ -1,6 +1,6 @@
 ---
 name: om-google-ads-reference
-description: Stable Google Ads API reference and specification for all Online Marketing agents — field types, character limits, asset specs, listing-group construction, bidding-strategy compatibility, GAQL verification queries, and error remediation. The shared spec/contract layer used by both campaign creation (Peggy) and the optimizer agents. Use whenever an agent needs the exact, binding API contract for building, changing, or verifying a Google Ads structure. Evolving best practice and experience live in Drive KI-Wissen/Google, not here.
+description: Stable Google Ads API reference and specification for all Online Marketing agents — field types, character limits, asset specs, listing-group construction, bidding-strategy compatibility, GAQL verification queries, AI Max for Search settings, ad-asset and negative-keyword specs, and error remediation. The shared spec/contract layer used by both campaign creation (Peggy) and the optimizer agents. Use whenever an agent needs the exact, binding API contract for building, changing, or verifying a Google Ads structure. Evolving best practice and experience live in Drive KI-Wissen/Google, not here.
 ---
 
 # Google Ads — Shared Reference
@@ -31,6 +31,9 @@ Load only the file you need (progressive disclosure); do not read them all up fr
 - `references/shopping-listing-groups.md` — Shopping product-partition (listing group) tree construction.
 - `references/bidding-strategies.md` — bidding-strategy fields, compatibility matrix, conversion-data thresholds, migration path.
 - `references/gaql-verification-queries.md` — canonical post-mutation verification queries per campaign type.
+- `references/ai-max.md` — AI Max for Search: the enable switch, the three automation mechanisms and their opt-outs, generated-text guardrails, preconditions, and the two AI-Max-only reporting resources.
+- `references/search-assets-spec.md` — Search assets: the three mandatory types with API-verified character limits, the fixed structured-snippet header list, price and call assets, the account/campaign/ad-group level hierarchy, automated-asset control, and the measurement queries.
+- `references/negative-keywords-spec.md` — negative keywords: the no-close-variants rule, match-type semantics, the three-level structure (account-level set, reusable shared set, campaign), limits, and link verification.
 - `references/common-errors.md` — error-code lookup with remediation steps.
 - `references/supabase-schema.md` — the Supabase data layer: the five `agent_reads` views an agent reads, the per-account `login-customer-id` rule, and the two Postgres division traps in every ratio. Replaces the retired BigQuery layer.
 

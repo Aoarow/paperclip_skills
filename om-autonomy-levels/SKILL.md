@@ -117,6 +117,7 @@ Regardless of level, escalate these to the department head:
 - Raising the property's total monthly budget (`budget.csv`).
 - Pausing a top-performer campaign.
 - A campaign with no impressions for three days or more.
+- Enabling AI Max, or changing any `asset_automation_settings` entry. It widens matching, ad text and landing pages in one step and is not a reversible bid tweak — no level covers it.
 - Any change that would exceed the active level's ceilings.
 - Any action whose justification is unclear — when in doubt, do nothing and escalate.
 
