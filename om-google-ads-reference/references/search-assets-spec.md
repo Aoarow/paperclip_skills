@@ -75,7 +75,7 @@ Ad Serving (see `om-google-campaign-creation`). Linked at **account level** (`cu
 | Field type | Asset | Limit (verified 2026-09-13) | Notes |
 |---|---|---|---|
 | `BUSINESS_NAME` | `text_asset.text` | **25** characters — 26 returns `TOO_LONG` | Must match the name users know from the landing page. |
-| `BUSINESS_LOGO` | `image_asset` | square | A 180×180 PNG was rejected at account level with `RESOURCE_LIMIT` on 2026-09-13; cause not established. **Set the logo in the Google Ads UI** until an API path is proven. |
+| `BUSINESS_LOGO` | `image_asset` | square; **one per account** | `RESOURCE_LIMIT` on a new link means a logo is **already linked** — not an API restriction. Check `customer_asset` with `field_type = 'BUSINESS_LOGO'` first. A newly linked logo sits at `primary_status = PENDING` while Google reviews it. |
 
 Both can be tested without creating anything: one `GoogleAdsService.Mutate` call with a temporary
 asset resource name (`customers/<id>/assets/-1`), the `customer_asset` link referencing it, and
