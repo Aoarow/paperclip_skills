@@ -74,7 +74,7 @@ Ad Serving (see `om-google-campaign-creation`). Linked at **account level** (`cu
 
 | Field type | Asset | Limit (verified 2026-09-13) | Notes |
 |---|---|---|---|
-| `BUSINESS_NAME` | `text_asset.text` | **25** characters — 26 returns `TOO_LONG` | Must match the name users know from the landing page. |
+| `BUSINESS_NAME` | `text_asset.text` | **25** characters — 26 returns `TOO_LONG`; **one per account** | Must match the name users know from the landing page. 🔴 **While Google reviews it, the link is invisible to GAQL**: `link_asset` reports success, `customer_asset` returns no row, a repeat create returns `RESOURCE_ALREADY_EXISTS` (or `RESOURCE_LIMIT` for a second name). That is review, not a defect. **Do not make a GAQL read-back the success criterion** — trust the successful link response, and confirm in the UI (*Assets → business name*, status "under review"). |
 | `BUSINESS_LOGO` | `image_asset` | square; **one per account** | `RESOURCE_LIMIT` on a new link means a logo is **already linked** — not an API restriction. Check `customer_asset` with `field_type = 'BUSINESS_LOGO'` first. A newly linked logo sits at `primary_status = PENDING` while Google reviews it. |
 
 Both can be tested without creating anything: one `GoogleAdsService.Mutate` call with a temporary
