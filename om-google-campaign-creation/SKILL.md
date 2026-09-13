@@ -103,7 +103,17 @@ The workhorse for capturing existing demand. Modern Search campaigns use only Re
 - ≥ 1 final URL
 - Optional: 2 paths (≤ 15 chars each), ad customizers, pinning
 
-Aim for the full 15 headlines and 4 descriptions. Pin sparingly — pinning reduces the asset-combination space that Google's optimisation operates over. A reasonable default is to pin one brand headline to `HEADLINE_1` and leave everything else unpinned.
+Aim for the full 15 headlines and 4 descriptions. Pin sparingly — pinning reduces the asset-combination space that Google's optimisation operates over. **One pin is mandatory, everything else stays unpinned** (see below).
+
+**Every ad must say who is advertising — Limited Ad Serving.** Since August 2026 Google throttles impressions for every account it does not yet trust, and it names two triggers explicitly: ads that reference **another company's brand** without making the relationship clear, and **generic ads** with no identifiable advertiser. Nothing gets disapproved; ads stay `APPROVED` and carry no policy topic, so the limitation is invisible at ad level. It shows up only as a notice to the account owner and as impressions lost inside `search_rank_lost_impression_share`, where it cannot be told apart from ordinary rank loss. Advertiser verification alone does not lift it.
+
+The trap is structural for any service provider: an agency selling Google Ads management writes "Google Ads Agentur" in every headline, an Amazon consultancy writes "Amazon", a Shopify developer writes "Shopify". To Google that reads as the brand owner's ad with the advertiser's name nowhere in sight. Three rules, all part of the build:
+
+- **Pin exactly one headline that contains the advertiser's own brand to `HEADLINE_1`** in every RSA — e.g. `Lexacore – Google Ads Agentur`. Mandatory whenever keywords or copy name a third-party brand; the default for everything else.
+- **Name the advertiser in at least one description** as well, phrased as the relationship: *"Lexacore betreut Ihr Google-Ads-Konto"*, not *"Google Ads Pakete"*.
+- **Cap generic headlines.** A headline that any competitor could run unchanged (*"Fester Ansprechpartner"*, *"Transparente Pakete wählen"*) carries no identity. Keep them a minority, and prefer versions that name the brand or the specific offer.
+
+Add a **business name** asset at account level as part of the evergreen asset set (limits in `om-google-ads-reference/references/search-assets-spec.md`). A business logo belongs there too, but see the spec file before attempting it via API.
 
 Target **"Excellent" Ad Strength** before saving. If the strength is "Average" or below, surface this to the human rather than proceeding.
 
@@ -374,6 +384,7 @@ These are the failure modes that come up most often. Check each one before submi
 - **Launching past an active gate in `strategy.md`.** A documented launch block (unconfirmed conversion tracking, missing approval) is not advisory. Build, leave `PAUSED`, and name the gate in the handover.
 - **Deriving the daily budget by dividing the monthly ceiling by 30 or 60.** Google's monthly limit is daily × 30.4. Always state the derived monthly figure next to the ceiling.
 - **Copying a sibling property's numbers.** Budgets, geo targets and `login-customer-id` are per property. A value that is correct next door is not evidence it is correct here.
+- **Ads that name a third-party brand but not the advertiser.** Every "Google Ads Agentur" headline without "Lexacore" in front of it is an invitation to Limited Ad Serving. Pin the brand headline to `HEADLINE_1`.
 - **Single-form negative keywords.** Negatives match no close variants; `kurs` does not block "kurse". Enter every relevant inflection.
 
 ---

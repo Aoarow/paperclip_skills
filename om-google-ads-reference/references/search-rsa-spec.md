@@ -53,7 +53,9 @@ Pinning forces an asset to a specific position. Use sparingly — every pinned s
 
 Multiple assets can be pinned to the same position — Google will pick one of them for that slot.
 
-**Default pinning convention:** pin one strong brand headline to `HEADLINE_1` if the advertiser has clear brand priority. Leave everything else unpinned unless there is a documented reason (legal required text, regulated industry).
+**Pinning convention:** exactly one headline containing the advertiser's own brand is pinned to `HEADLINE_1` in every RSA — **mandatory**, not optional, because unbranded ads and ads naming a third-party brand trigger Limited Ad Serving. The reasoning and the copy rules live in `om-google-campaign-creation` ("Every ad must say who is advertising"). Everything else stays unpinned unless there is a documented reason (legal required text, regulated industry).
+
+Verified 2026-09-13: an RSA with `pinned_field = HEADLINE_1` on a 29-character brand headline passes `validate_only`.
 
 ## Ad customizers
 

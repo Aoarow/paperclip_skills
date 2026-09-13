@@ -67,6 +67,20 @@ click — and pre-qualifying the click matters more than winning it when the bud
 Price wording is a commitment. It must match the landing page **exactly** — never rounded, never
 reformulated.
 
+## Advertiser identity assets
+
+Both strengthen the advertiser's identity in the ad and are the account-level answer to Limited
+Ad Serving (see `om-google-campaign-creation`). Linked at **account level** (`customer_asset`).
+
+| Field type | Asset | Limit (verified 2026-09-13) | Notes |
+|---|---|---|---|
+| `BUSINESS_NAME` | `text_asset.text` | **25** characters — 26 returns `TOO_LONG` | Must match the name users know from the landing page. |
+| `BUSINESS_LOGO` | `image_asset` | square | A 180×180 PNG was rejected at account level with `RESOURCE_LIMIT` on 2026-09-13; cause not established. **Set the logo in the Google Ads UI** until an API path is proven. |
+
+Both can be tested without creating anything: one `GoogleAdsService.Mutate` call with a temporary
+asset resource name (`customers/<id>/assets/-1`), the `customer_asset` link referencing it, and
+`validate_only = true`.
+
 ## The level hierarchy
 
 Assets attach at three levels, and the more specific one overrides the more general:
