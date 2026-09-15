@@ -76,6 +76,28 @@ No live changes. Analyze performance, document findings, propose changes as task
 > substitute another tool for it.** Do not treat the missing tool as a reason to act outside the
 > band, and do not treat the permission as proof the tool is there.
 
+## FBA — lever map per level
+
+FBA agents are assistants, not optimizers (`om-amazon-fba`); their levels gate how far a shipment is
+prepared, never whether money is spent. The level is set per customer in `client.md` §FBA — separate
+from the advertising level, because a customer's ads can be proven while its logistics are not.
+
+### Observe (FBA)
+Compute and report: reach, delivery decision, position list, stock-outs, chase list. Nothing is
+created at Amazon.
+
+### Standard (FBA)
+As Observe, plus **the draft plan at Amazon** through the draft-plan tool — up to and including
+transport and delivery-window options, and confirming a single fee-free packing option. Nothing
+beyond that.
+
+### Extended (FBA)
+Not defined. No FBA lever exists above Standard.
+
+**FBA — at every level, always the human:** confirming placement (placement fee), delivery window
+and transport (booking); cancelling a plan; the message to the customer's warehouse; labels and the
+tracking number. These are not ceilings that rise with trust — they are the design.
+
 ## The return path — who executes a decision that came back
 
 Escalation is not a one-way street. Every escalation a human decides must come back down to

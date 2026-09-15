@@ -1,6 +1,6 @@
 ---
 name: om-amazon-fba
-description: Daily FBA replenishment for one Amazon account — read stock, sales velocity, shipment state and packing data from Supabase (agent_reads only, never the SP-API directly), decide whether a delivery is due, and prepare the shipment for a human to confirm. Covers the trigger logic (fixed cadence vs. demand), reach and protection-interval maths, rounding to shipping units, product-status rules, the out-of-stock cases, packing sources, and the guards that keep a plausible-looking number from becoming a pallet in the wrong place. The agent is an assistant, not an autonomous optimizer — confirmPlacementOption and confirmTransportationOptions cost money, are irreversible, and stay permanently with the human at every autonomy level. Dates and limits (cadence, target reach, lead time, thresholds, country exclusions, responsibilities) are read from the customer's client.md; quantities (units per shipping unit, delivery quantum) are read from the product data. Neither is ever hard-coded here. Use whenever an FBA agent runs its daily cycle, judges whether a shipment is due, prepares a position list, or chases a missing tracking number. Advertising doctrine lives in om-amazon-advertising-manifest; permission ceilings in om-autonomy-levels.
+description: Daily FBA replenishment for one Amazon account — read stock, sales velocity, shipment state and packing data from Supabase (agent_reads only; the SP-API is reached solely through the draft-plan tool, never directly), decide whether a delivery is due, and prepare the shipment — at Standard autonomy as a draft plan at Amazon — for a human to confirm. Covers the trigger logic (fixed cadence vs. demand), reach and protection-interval maths, rounding to shipping units, product-status rules, the out-of-stock cases, packing sources, and the guards that keep a plausible-looking number from becoming a pallet in the wrong place. The agent is an assistant, not an autonomous optimizer — confirmPlacementOption and confirmTransportationOptions cost money, are irreversible, and stay permanently with the human at every autonomy level. Dates and limits (cadence, target reach, lead time, thresholds, country exclusions, responsibilities) are read from the customer's client.md; quantities (units per shipping unit, delivery quantum) are read from the product data. Neither is ever hard-coded here. Use whenever an FBA agent runs its daily cycle, judges whether a shipment is due, prepares a position list, or chases a missing tracking number. Advertising doctrine lives in om-amazon-advertising-manifest; permission ceilings in om-autonomy-levels.
 ---
 
 # Amazon FBA — Replenishment and Shipment Preparation
@@ -25,7 +25,7 @@ rises with maturity; it is the design.
 ## What this skill covers
 
 - Deciding whether a delivery is due, and how much of what to send
-- Building the position list (and, once the tooling exists, the shipment draft up to the money steps)
+- Building the position list, and at `Standard` the draft plan at Amazon up to the money steps
 - Product-status and out-of-stock handling
 - Chasing tracking numbers and keeping shipment state honest
 - The guards that stop a wrong-but-plausible number
@@ -40,9 +40,10 @@ These are boundaries the agent could otherwise cross, not a map of neighbouring 
 - **Physical work.** Sticking labels, measuring cartons, building pallets. The **pallet count** is
   set by the customer's logistics, not by us: the agent counts in cartons and trays and supplies
   dimensions as an indication only.
-- **The end of the current scope: the shipment is created.** Everything downstream — drafting the
-  message to the customer's warehouse, depositing or sending carton and pallet labels, entering the
-  tracking number at Amazon — is out of scope for now and done by the human. Watching for shipments
+- **The end of the current scope: the draft plan, stopped before the money steps.** Everything
+  downstream — confirming placement, delivery window and transport, drafting the message to the
+  customer's warehouse, carton and pallet labels, entering the tracking number at Amazon — is done by
+  the human. Watching for shipments
   that hang without a tracking number stays in scope; it is observation, not action.
 
 Advertising (bids, budgets, keywords) belongs to `om-amazon-optimization` and its siblings — worth
@@ -337,12 +338,57 @@ name is a strong hint, never a rule.
 5. Determine the trigger: cadence date reached, or threshold met.
 6. Compute reach, protection interval, need; round to shipping units.
 7. Decide: deliver, or do not deliver.
-8. If delivering: prepare the position list, and create the shipment where the tooling allows —
-   **stop before the two money steps.** This is where the current scope ends.
+8. If delivering: prepare the position list. At `Standard`, enter it at Amazon as a draft plan through
+   the draft-plan tool (see *The draft plan*) — **it stops before the money steps by construction.**
 9. Escalate: create a Paperclip issue with **Peggy as assignee**, who reaches the human handler.
 10. Write the run entry — **every run, including runs where nothing was due.**
 11. Chase: list shipments ready or shipped without a tracking number beyond the customer's grace
     period, and report them. Reporting only — entering the number at Amazon is the human's step.
+
+---
+
+## The draft plan — what the tool does and what it never does
+
+At `Standard` an FBA agent enters its position list at Amazon through **one tool**,
+`fba_draft_plan.py` on the ops server, run as the SP-API user through a single sudoers rule. The
+call and the input shape are in the agent's `HEARTBEAT.md`; the contract is here.
+
+**Why a tool and not the API.** The inbound workflow has a binding order that has cost whole days
+when broken: packing information before placement options, transport options (with pallets **and**
+freight information) before any placement confirmation, and every write is asynchronous. That is
+arithmetic and sequencing, not judgement — so it lives in code. The agent decides *what* to send;
+the tool decides *how* Amazon is told.
+
+**What it does** — steps 1–12, in the only order that works: create the plan · generate packing
+options and confirm a single fee-free one · set packing information from the carton data · generate
+placement options and check every warehouse **code** against the country exclusions · generate
+transport options with an estimated pallet build and the declared value from catalogue prices ·
+generate delivery-window options · read the shipment back. Then it prints a report.
+
+**What it never does, at any level:** confirm placement, delivery window or transport, or cancel a
+plan. Those endpoints are not on its allowlist; a request for them is refused inside the tool. There
+is no other write path, and an agent never looks for one.
+
+**What the agent supplies, and from where:**
+
+| Input | Source |
+| :--- | :--- |
+| positions and units | the agent's own computation |
+| carton dimensions, weight, units per carton, price, `fba_default` | the mirror (`<t>_fba_packing`, `<t>_products_by_asin`) |
+| sender address, warehouse contact, excluded countries, ready-to-ship offset, best-before rule | `client.md` §FBA — never an old plan |
+
+**What the agent does not fill in.** A missing carton dimension, a missing `client.md` value, a
+pallet count: the tool refuses or estimates and says so, and the agent escalates. A position is never
+dropped to make the plan pass — a changed delivery is a decision, not a workaround.
+
+**Pallets are an estimate.** Full-quantum blocks (`fba_default` > 1) go one block per pallet; the
+rest is pooled by volume and weight on 120 × 80 pallets. The customer's warehouse builds the real
+pallets; the human corrects the figure before confirming. Checked against a real shipment
+(2026-09-15): same pallet count, heights within 10 cm.
+
+**One plan per cadence date.** A second call for the same date prints the stored report instead of
+creating a duplicate. A half-built plan (`STOPPED`, `ERROR`) is never retried by the agent — it may
+already exist at Amazon, and an API-built plan cannot be finished in Seller Central.
 
 ---
 
