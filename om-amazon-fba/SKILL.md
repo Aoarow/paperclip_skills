@@ -181,8 +181,8 @@ Rounding happens in **two layers, in this order**:
    the catalogue value, the history wins (see the packing sources below).
 2. **Round up to a multiple of `fba_default`**, the per-SKU delivery quantum from the product data.
    Where it is empty the value is **1**, so this layer does nothing and the shipping unit from
-   step 1 stands. Where it holds a number — for example a full pallet of cans expressed in units —
-   the shipment is rounded up to whole multiples of it.
+   step 1 stands. Where it holds a number greater than 1 — a full pallet expressed in units — the
+   shipment is rounded up to whole multiples of it.
 
 This is what keeps a slow-turning product in a pallet-shaped class from receiving a pallet it will
 not consume: it simply has no quantum set, so it ships in plain shipping units.
@@ -190,6 +190,16 @@ not consume: it simply has no quantum set, so it ships in plain shipping units.
 For a product that *does* carry a quantum, the trigger is the **protection interval, not the fill
 target** — otherwise the agent sends a full quantum every cadence for a product that consumes a
 fraction of one.
+
+⚠️ **Only `fba_default` makes a quantum product — nothing else does.** A product carries a quantum
+if and only if its `fba_default` is greater than 1. Packaging never makes one: not a can or a tray,
+not `12x0,33l` in the product name, not an `-12fba` suffix, not a pallet-like template name in the
+carton history (`1 Pal 4 Lag` describes how one past shipment was built, not a rule), and not a
+sentence in `client.md` that mentions cans and full pallets together. **A can with `fba_default` 1
+is filled to the target reach exactly like a bottle.** Measured on the live account on 2026-09-15:
+a can SKU without a quantum, at 26 days of reach, was left out because the run treated it as a
+pallet SKU and applied the protection interval — while every bottle with a comparable reach
+received a position.
 
 ### The threshold
 
