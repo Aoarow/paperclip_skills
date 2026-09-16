@@ -49,6 +49,7 @@ The shared scaffold can be created once the property itself is valid. Before dec
 `activation-ready`, require:
 
 - a confirmed Google Ads CID in `client.md`;
+- the account linked to the Lexacore MCC `780-767-4607` (`MCC linked: yes`);
 - conversion tracking reviewed and either verified or recorded as a human action;
 - the CID added to the sync's account list and to `GADS_ALLOWED_CUSTOMERS`;
 - the property's five `agent_reads` views created and its scoped read role provisioned;
@@ -56,20 +57,20 @@ The shared scaffold can be created once the property itself is valid. Before dec
 - a non-empty, human-approved `budget.csv`;
 - a human-completed `strategy.md`.
 
-> **MCC linkage is no longer a data prerequisite.** It used to be, because the BigQuery
-> transfer ran at MCC level and only picked up accounts linked beneath it. The Supabase
-> sync calls each account directly, so an independent account works exactly as well —
-> `lexacore.de` (`3010573696`) has always been one. Whether to link a client into the MCC
-> is now purely an access/administration question, not a reporting one.
+> **Every client account must be linked to the MCC.** Since 2026-09-16 all accounts,
+> including `lexacore.de`, sit under MCC `7807674607`, and the agents' Google Ads MCP sends
+> `login-customer-id: 7807674607` for every call. An unlinked account fails for the agents
+> with `403 USER_PERMISSION_DENIED`, even when the sync and `GADS_ALLOWED_CUSTOMERS` are
+> correct. Linking changes neither billing nor campaigns. If `client.md` says
+> `MCC linked: no`, route the link request to the human before data wiring.
 
 ### Wiring a new property
 
 1. **Add the account to the sync.** In `google_ads_sync.py`, extend `ACCOUNTS` with
-   `(customer_id, login_customer_id_or_None)`. **The header rule is not cosmetic:** an
-   account under the MCC needs `login-customer-id`; an independent account must **not**
-   have it, or Google answers `403 USER_PERMISSION_DENIED`.
+   `(customer_id, "7807674607")`. The per-account header field stays so a documented
+   exception remains possible, but the rule is: linked account, MCC header.
 2. **Choose a tenant name and a view prefix** (lowercase, `a-z0-9_`). Convention so far:
-   `lexacore_ai` / `lxai`, `lexacore_de` / `lxde`.
+   `lexacore_ai` / `lxai`, `lexacore_de` / `lxde`, `wordsbydaniela_com` / `wbd`.
 3. **Create the five views** from
    [create_google_views.sql](create_google_views.sql) after substituting `{{PREFIX}}` and
    `{{CID}}`. Review the rendered SQL before running it.
