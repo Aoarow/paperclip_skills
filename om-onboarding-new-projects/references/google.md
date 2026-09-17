@@ -50,7 +50,8 @@ The shared scaffold can be created once the property itself is valid. Before dec
 
 - a confirmed Google Ads CID in `client.md`;
 - the account linked to the Lexacore MCC `780-767-4607` (`MCC linked: yes`);
-- conversion tracking reviewed and either verified or recorded as a human action;
+- conversion tracking reviewed and either verified or recorded as a human action (setup,
+  ownership and proof criteria: [google-conversion-tracking.md](google-conversion-tracking.md));
 - the CID added to the sync's account list and to `GADS_ALLOWED_CUSTOMERS`;
 - the property's five `agent_reads` views created and its scoped read role provisioned;
 - the technical bindings, tenant name and view prefix recorded in `data-sources.md`;

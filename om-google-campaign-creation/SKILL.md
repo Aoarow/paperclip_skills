@@ -32,7 +32,7 @@ If a request asks for any of the above, stop and hand back to the human with a c
 Run through these checks before issuing a single mutate. Skipping them is the most common source of failed campaign launches.
 
 1. **Customer ID resolved.** You know the exact `customer_id` (10-digit, no dashes) of the advertising account. If managing under an MCC, also set `login-customer-id`.
-2. **Conversion tracking confirmed — configured is not confirmed.** Exactly one action has `primary_for_goal = true`, every other enabled action has `include_in_conversions_metric = false`, and the primary action **has actually recorded conversions**. Query `conversion_action` with a date range to verify; an action that has never fired is not tracking, and no conversion-based bidding strategy will work against it. If it has never fired, say so and pick a cold-start strategy — do not treat the field values as proof.
+2. **Conversion tracking confirmed — configured is not confirmed.** Exactly one action *counts*: `primary_for_goal = true` **and** `include_in_conversions_metric = true`. Every other enabled action has `include_in_conversions_metric = false`. System-managed `origin = GOOGLE_HOSTED` actions (e.g. "Click-to-Call") can show `primary_for_goal = true` with `include_in_conversions_metric = false`; they cannot be mutated (`MUTATE_NOT_ALLOWED`), their goal is not biddable, and they are **not** a second primary — do not stop on them. The counted primary action must also **have actually recorded conversions**. Query `conversion_action` with a date range to verify; an action that has never fired is not tracking, and no conversion-based bidding strategy will work against it. If it has never fired, say so and pick a cold-start strategy — do not treat the field values as proof.
 3. **Budget decided.** Daily budget amount, currency, and whether it is shared. New campaigns should start with a dedicated (non-shared) budget unless explicitly told otherwise.
 4. **Bidding strategy decided.** See "Bidding strategies" below — it must be appropriate for the campaign type and the campaign's data state (new campaigns rarely qualify for `TARGET_ROAS` from day one).
 5. **Targeting decided.** Geography (radius vs. administrative region — see "Cold start"), positive geo target type, language, network settings, audience signals. New campaigns get **no** ad schedule.
@@ -138,8 +138,8 @@ are two entries. See `om-google-ads-reference/references/negative-keywords-spec.
 **One conversion action per business outcome — never per campaign.** Google attributes every
 conversion to the campaign that earned the click, so separate actions are never needed for
 reporting. Override `campaign_conversion_goal` only when a campaign demonstrably pursues a
-different action type. Before building: verify exactly one action has `primary_for_goal = true`
-and that every other enabled action has `include_in_conversions_metric = false`.
+different action type. Before building: verify exactly one counted primary action, as defined in
+pre-flight check 2.
 
 **No ad schedule on a new campaign.** Time restriction is a data-driven lever, and set before
 data it prevents exactly the data that would justify it — an excluded hour produces no evidence
@@ -281,6 +281,10 @@ decisions differ, and getting them wrong is the most common way a launch produce
 **Bidding.** Conversion-based strategies need a signal to learn from. An account with zero
 recorded conversions gives them none — the campaign sits in `BIDDING_STRATEGY_LEARNING`
 indefinitely. Start on `TARGET_SPEND` (maximise clicks) with a CPC ceiling, or `MANUAL_CPC`.
+The Lexacore Google Ads MCP's `create_search_campaign` offers only `MANUAL_CPC` and
+`MAXIMIZE_CONVERSIONS`; for `TARGET_SPEND`, create the campaign `PAUSED` with `MANUAL_CPC`, then
+call `update_campaign_bidding` with `strategy = MAXIMIZE_CLICKS` and `cpc_bid_ceiling_eur` (this
+writes `target_spend.cpc_bid_ceiling_micros`) and read it back by GAQL. This is not a tool gap.
 Graduate to conversion-based bidding once the property has meaningful monthly conversion volume;
 the thresholds are in `references/bidding-strategies.md`. A configured-but-never-fired conversion
 action is **not** a signal.
