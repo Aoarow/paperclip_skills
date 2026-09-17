@@ -23,6 +23,10 @@ The starting level for a new or unproven property. No live changes.
 - Allowed: analyze performance, document findings, propose changes as tasks to the
   department head.
 - Everything that would mutate the account escalates.
+- A human change order does not lift this. When a human orders a change on an Observe
+  property, the department head carries it out, or the human does. It is never delegated
+  to the property's own agents. The order authorizes the change, not the agent's level.
+  Otherwise an Observe agent learns from its own decision log that it writes to the account.
 
 ### Standard
 The everyday level once a property runs reliably.
