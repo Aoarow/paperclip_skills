@@ -45,10 +45,10 @@ The customer's portal login + company record can only be created by a human in t
 
 ### Step 2 — Create the Plane project + blueprint + mapping
 
-Only after Step 1 is confirmed done by the board. Requires `~/.lexacore/plane.env` on this host (Plane API key, workspace, Supabase URL + anon key, project-lead member id — ask the human to add it if missing).
+Only after Step 1 is confirmed done by the board. Requires `~/.lexacore/plane.env` (Plane API key, workspace, project-lead member id) and `~/.lexacore/plane-link.env` (`PLANE_LINK_DATABASE_URL` for the DB role `plane_link`, which may only execute `link_company_plane_project`) on this host — ask the human to add them if missing. Never substitute a Supabase service_role key.
 
 ```bash
-source ~/.lexacore/plane.env
+source ~/.lexacore/plane.env && source ~/.lexacore/plane-link.env
 python3 references/create_plane_project.py "<Customer display name>" "<CODE>"
 ```
 

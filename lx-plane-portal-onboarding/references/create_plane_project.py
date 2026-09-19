@@ -14,10 +14,11 @@ Prerequisites (see SKILL.md):
   - The customer LOGIN + company record already exist (admin created them in the
     portal admin area). The company display name MUST equal the argument exactly.
   - ~/.lexacore/plane.env exports:
-      PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL,
-      SUPABASE_URL, SUPABASE_ANON_KEY, PROJECT_LEAD_MEMBER_ID
+      PLANE_API_KEY, PLANE_WORKSPACE_SLUG, PLANE_BASE_URL, PROJECT_LEAD_MEMBER_ID
+  - ~/.lexacore/plane-link.env exports PLANE_LINK_DATABASE_URL (login role
+    `plane_link`, which may only execute link_company_plane_project).
 
-The script talks to Plane via curl (robust TLS) and to Supabase via its REST RPC.
+The script talks to Plane via curl (robust TLS) and to Supabase via psql.
 It is NOT idempotent for the Plane project itself — run once per customer.
 """
 import json, os, subprocess, sys
@@ -35,7 +36,8 @@ def env(k):
     return v
 
 PKEY = env("PLANE_API_KEY"); SLUG = env("PLANE_WORKSPACE_SLUG"); PBASE = env("PLANE_BASE_URL")
-SUPA_URL = env("SUPABASE_URL"); SUPA_KEY = env("SUPABASE_ANON_KEY")
+# Narrow role, not service_role: plane_link can call this one function and nothing else.
+LINK_DB = env("PLANE_LINK_DATABASE_URL")
 LEAD = env("PROJECT_LEAD_MEMBER_ID")
 B = f"{PBASE}/api/v1/workspaces/{SLUG}"
 
@@ -128,15 +130,14 @@ rel("7", ["9", "10", "11"]); rel("8", ["7"]); rel("13", ["7"]); rel("14", ["8", 
 print("  relations set")
 
 # 7) Link to the Supabase customer (company_plane_projects) -----------------
+# Values go in as psql variables (:'x' quoting), never spliced into the SQL string.
 rpc = subprocess.run(
-    ["curl", "-s", "--max-time", "30", "-X", "POST",
-     f"{SUPA_URL}/rest/v1/rpc/link_company_plane_project",
-     "-H", f"apikey: {SUPA_KEY}", "-H", f"Authorization: Bearer {SUPA_KEY}",
-     "-H", "Content-Type: application/json",
-     "-d", json.dumps({"p_company_name": CUSTOMER_NAME,
-                       "p_plane_project_id": PID,
-                       "p_plane_project_name": PROJECT_NAME})],
-    capture_output=True, text=True).stdout
-print(f"Mapping (company_plane_projects): {rpc.strip()}")
+    ["psql", LINK_DB, "-X", "-q", "-tA", "-v", "ON_ERROR_STOP=1",
+     "-v", f"n={CUSTOMER_NAME}", "-v", f"id={PID}", "-v", f"pn={PROJECT_NAME}"],
+    input="select public.link_company_plane_project(:'n', :'id'::uuid, :'pn');\n",
+    capture_output=True, text=True, timeout=30)
+if rpc.returncode != 0:
+    sys.exit(f"Mapping FAILED (Plane project {PID} exists, not linked): {rpc.stderr.strip()}")
+print(f"Mapping (company_plane_projects): {rpc.stdout.strip()}")
 print("\nDONE. Notifications work automatically (dynamic project lookup) — no n8n change needed.")
 print("Remaining human step: the customer login/company must exist in the portal admin area.")
