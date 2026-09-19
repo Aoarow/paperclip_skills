@@ -1,6 +1,6 @@
 ---
 name: lx-paperclip-inbox-cycle
-description: The shared Paperclip wake-up routine for every Lexacore agent. Defines the canonical task lifecycle run on each heartbeat — read wake context, load assigned tasks, check out a task, load its context, do the work, then close the issue with a valid status. Covers the routing rules that keep the escalation chain moving without dead-ends - escalate upward by reassigning the issue to the supervisor and setting it to todo, delegate downward by creating a sub-issue for a subordinate, and never leave an issue blocked or without a concrete assignee. Use this whenever an agent's HEARTBEAT runs, so the task-handling commands live in exactly one place instead of being copied into every agent. The agent's own work step is supplied by the calling HEARTBEAT.
+description: The shared Paperclip wake-up routine for every Lexacore agent. Defines the canonical task lifecycle run on each heartbeat — read wake context, load assigned tasks, check out a task, load its context, do the work, then close the issue with a valid status. Covers the routing rules that keep the escalation chain moving without dead-ends - escalate upward by reassigning the issue to the supervisor and setting it to todo, delegate downward by creating a blocking child issue for a subordinate and setting the parent blocked on it, and never leave an issue blocked without a linked blocker or without a concrete assignee. Use this whenever an agent's HEARTBEAT runs, so the task-handling commands live in exactly one place instead of being copied into every agent. The agent's own work step is supplied by the calling HEARTBEAT.
 ---
 
 # Paperclip Inbox Cycle
@@ -17,25 +17,29 @@ status change and a comment are always **two separate calls** (post the comment 
 `in_progress`, `in_review`, `done`, `cancelled`, `blocked`.
 
 **Why this matters (the failure this skill prevents).** When a run ends, Paperclip's
-liveness check looks at every issue the run had checked out. If such an issue is left
-`in_progress`, assigned to the same agent, with **no active delegated child** — or if the
-run only commented without changing the status — Paperclip raises a *stale-disposition
-warning*, fails auto-recovery, and reassigns the issue to a **recovery owner (the
-supervisor)**. That is exactly why a supervisor keeps getting pulled into routine runs.
-So **every path in Step 6 ends by setting a terminal or handoff status explicitly** — a
-comment alone is never enough.
+disposition guard looks at the issue the run worked on. If it is left `in_progress` and
+none of these hold — another run or wake for the same issue is already queued, a question
+or approval is pending, or the issue is **linked as blocked by an open issue** — Paperclip
+posts "needs a disposition", wakes the agent once to fix it, and if that fails blocks the
+issue on a **recovery owner (the supervisor)**. That is exactly why a supervisor keeps
+getting pulled into routine runs. So **every path in Step 6 ends by setting a terminal or
+handoff status explicitly** — a comment alone is never enough.
 
-**The `in_progress` trap.** `in_progress` is a valid *end-of-run* state in **one** case
-only: delegate-down (Step 6c), where you have just created a child issue that is now
-actively assigned to a subordinate, so the parent legitimately waits. In every other
-case, ending `in_progress` is read as a missing disposition. "I still need to keep
-monitoring" is **not** a reason to stay `in_progress` — see below.
+⚠️ **A child issue alone does not count.** The guard never looks at `parentId`. A parent
+left `in_progress` with a perfectly assigned child still trips it — verified in the
+Paperclip server code on 2026-09-19, after LEXA-871 did everything this skill used to
+prescribe and still pulled in Roger twice. What counts is the **blocker link**, which
+Step 6c creates.
+
+**The `in_progress` trap.** `in_progress` is never a valid *end-of-run* state for an
+agent. "I still need to keep monitoring" and "my child issue is still running" are both
+**not** reasons to stay `in_progress` — see below and Step 6c.
 
 **A no-action run is still a completed run.** If today's pass needs no changes — or you
 are waiting out a settling / observation period — that is `done`, with a one-line
 "no action" comment. The continued monitoring is the **next** scheduled run's own dated
-issue; it is never a reason to keep today's issue open. `blocked` is likewise never a
-close-out (see rule 1 below).
+issue; it is never a reason to keep today's issue open. Nor is `blocked` — that is only
+for a parent waiting on linked children (rule 1 below).
 
 All commands use the Paperclip environment variables present at wake-up:
 `$PAPERCLIP_API_KEY`, `$PAPERCLIP_API_URL`, `$PAPERCLIP_AGENT_ID`, `$PAPERCLIP_RUN_ID`,
@@ -45,10 +49,12 @@ All commands use the Paperclip environment variables present at wake-up:
 
 ## Two rules that keep the chain moving
 
-1. **Never leave an issue `blocked`, and never leave it without a concrete assignee.**
-   `blocked` is a dead-end: other agents skip it (Step 2) and it must be revived by a
-   human. If I cannot finish an issue myself, I route it to a real agent (up or down) —
-   I do not block it. `blocked` is reserved for humans/manual use.
+1. **Never leave an issue `blocked` without a linked blocker, and never without a concrete
+   assignee.** `blocked` with nothing linked is a dead-end: nothing will ever wake it, and
+   it must be revived by a human. If I cannot finish an issue myself, I route it to a real
+   agent — up by reassignment (6b), down by a blocking child (6c). The **one** `blocked` an
+   agent may set is the parent in 6c, where Paperclip itself holds the link to the child
+   and wakes me when it is done. Every other `blocked` is reserved for humans.
 2. **Routing is structured, never prose.** Handing work on means setting the assignee
    *and* the status — not writing a comment that asks someone to take over. A comment
    carries context; it is never the handoff itself, and a pasted transcript never counts
@@ -72,7 +78,9 @@ run_shell_command({ command: "echo TASK=$PAPERCLIP_TASK_ID REASON=$PAPERCLIP_WAK
 run_shell_command({ command: "curl -s -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" \"$PAPERCLIP_API_URL/api/agents/me/inbox-lite\"" })
 ```
 Priority: `in_progress` first, then `todo`. Ignore `blocked` tasks unless you can
-unblock them.
+unblock them — **except** when `$PAPERCLIP_WAKE_REASON` is `issue_blockers_resolved`: then
+every child that blocked `$PAPERCLIP_TASK_ID` is `done`, and that parent is yours to review
+and close now (Step 6c, last paragraph).
 **Blocked-task dedup:** if your last comment already describes a blocked status and no
 newer comments from other agents or humans exist since, skip the task.
 
@@ -100,8 +108,8 @@ Otherwise, on a cold start only, load all comments:
 ```
 run_shell_command({ command: "curl -s -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" \"$PAPERCLIP_API_URL/api/issues/{issueId}/comments\"" })
 ```
-The context carries the issue's `projectId` and `parentId`. Note the `projectId` — you
-need it if you create a sub-issue in Step 7.
+The context carries the issue's `projectId` and `parentId`. A child created in Step 7
+inherits the `projectId` by itself; a self-run issue needs the agent's own project.
 
 ### 5. Do the work
 Perform the agent-specific work defined in the calling HEARTBEAT. This skill does not
@@ -123,7 +131,7 @@ Every checked-out issue ends this run with exactly one of the outcomes below. Ea
 **two calls**: first an optional context comment, then the status PATCH that *is* the
 disposition. The status PATCH is the last act of the run, so the issue ends with a clean
 disposition. Never end a run with the issue left unattended, with only a comment and no
-status change, left `in_progress` without an active delegated child, or `blocked`.
+status change, left `in_progress`, or `blocked` without a linked child (6c).
 
 **6.1 — record the context (recommended).** Post one short, structured comment. The body
 field is `body`; this is a separate endpoint from the status PATCH.
@@ -149,15 +157,26 @@ If I am at the top of the chain (no supervisor configured), I escalate to the hu
 owner per Paperclip configuration instead of to a `{supervisorAgentId}`.
 
 **c) Delegate down — I have decided and a subordinate should execute.** (Supervisors only.)
-Create a sub-issue for the chosen subordinate (Step 7), then set *this* issue to
-`in_progress` so it stays mine while the sub-issue runs. This is the **only** valid
-`in_progress` end-of-run state, because a child is now actively assigned downward. When
-the sub-issue is resolved and I have reviewed the result, I close this issue `done`
-(outcome a).
+Create each child through the **children endpoint with `blockParentUntilDone: true`**
+(Step 7). Paperclip then links *this* issue as blocked by the child. After the last child
+is created, set *this* issue to `blocked` (command below). It stays assigned to me.
 
-🔴 **Two ways this goes wrong — both observed on 2026-09-03, both cost a recovery
-escalation each.** The exception above is narrow: the child must be **actively assigned**
-and it must go **downward**. Check both before you set `in_progress`.
+Why this shape: the blocker link is what the disposition guard accepts (see "Why this
+matters"), and it is also what brings me back — when **every** linked child is `done`,
+Paperclip wakes me with `issue_blockers_resolved`. No comment, no polling, no supervisor.
+On that wake I read the children's results, verify them against the parent's success
+criteria, and close this issue `done` (outcome a) — or delegate again if something is
+missing.
+
+🔴 **A blocking child is closed `done`, never `cancelled`.** Paperclip only counts `done`
+as resolved. A cancelled child leaves the parent `blocked` with no wake — silently stuck.
+If a child's work turns out to be unnecessary, close it `done` with a comment saying why
+it was not executed. If I cancel one of my own children myself, I finish the parent in the
+same run.
+
+🔴 **Two more ways this goes wrong — both observed on 2026-09-03, both cost a recovery
+escalation each.** The child must be **assigned** and it must go **downward**. Check both
+before the create call.
 
 | Mistake | What it actually is | Do this instead |
 | :--- | :--- | :--- |
@@ -177,9 +196,16 @@ fail in isolation: one unfinished item holds the whole card open, and an open ca
 valid disposition feeds the recovery loop. On 2026-09-03 six of seven items succeeded in a
 single run, and the seventh kept the parent alive through eight agent runs. Split by action,
 not by topic.
+
+After the children exist, set the parent (this command is the disposition):
 ```
-run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"in_progress\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
+run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"blocked\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
+Then read the parent back (`GET /api/issues/{issueId}`): its `blockedBy` array must list
+every child. If it is empty, the children were not created through the children endpoint —
+the parent is then a dead-end `blocked`. Fix it in the same run by PATCHing
+`{"blockedByIssueIds": ["<childId>", ...]}` (that is the write field; `blockedBy` is the
+read field).
 
 **d) Cancel — the work has become moot.**
 ```
@@ -187,40 +213,41 @@ run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPER
 ```
 
 The remaining statuses (`backlog`, `in_review`) are not part of the standard agent
-close-out; use them only if a specific workflow introduces them. `blocked` is never an
-agent close-out (rule 1).
+close-out; use them only if a specific workflow introduces them. `blocked` is an agent
+close-out **only** as the linked parent in 6c (rule 1).
 
 ### 7. Create an issue (delegate down, or a scheduled agent's own run)
-Creating an issue is the one write that adds new board work. Two cases use the same
-command — only `assigneeAgentId`, `parentId`, and `projectId` differ:
+Creating an issue is the one write that adds new board work. The two cases use
+**different endpoints**.
 
-- **Delegate down (sub-issue):** `assigneeAgentId` = the chosen subordinate;
-  `parentId` = this issue (quoted id); `projectId` = this issue's project (from the
-  context in Step 4).
-- **Scheduled standing mandate (self-run):** `assigneeAgentId` = `$PAPERCLIP_AGENT_ID`
-  (itself); `parentId` = the JSON literal `null` (unquoted, no parent);
-  `projectId` = the agent's own project.
+**Delegate down (child issue)** — the children endpoint of this issue. It inherits the
+parent's `projectId` by itself; `blockParentUntilDone: true` creates the blocker link that
+6c depends on. Never create a delegated child through the company endpoint with a
+`parentId` — that child exists, but blocks nothing, and the parent trips the guard.
+```
+run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"title\": \"...\", \"description\": \"...\", \"assigneeAgentId\": \"<subordinateAgentId>\", \"status\": \"todo\", \"blockParentUntilDone\": true}' \"$PAPERCLIP_API_URL/api/issues/{issueId}/children\"" })
+```
 
+**Scheduled standing mandate (self-run)** — the company endpoint, assigned to myself, no
+parent, the agent's own project:
 ```
-run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"title\": \"...\", \"description\": \"...\", \"assigneeAgentId\": \"<assignee>\", \"parentId\": <parent>, \"projectId\": \"<projectId>\", \"goalId\": null}' \"$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/issues\"" })
+run_shell_command({ command: "curl -s -X POST -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"title\": \"...\", \"description\": \"...\", \"assigneeAgentId\": \"'$PAPERCLIP_AGENT_ID'\", \"parentId\": null, \"projectId\": \"<projectId>\", \"goalId\": null}' \"$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/issues\"" })
 ```
-`<assignee>` = subordinate's agentId (delegate) or `$PAPERCLIP_AGENT_ID` (self-run).
-`<parent>` = `"{issueId}"` (delegate, quoted) or `null` (self-run, unquoted).
-`<projectId>` = this issue's project (delegate) or the agent's own project (self-run).
 
 A self-created run issue is normally `todo`/`backlog` at creation, so the same agent
 checks it out (Step 3) and closes it (Step 6) through the normal lifecycle.
 
 **Direction of the chain.** Escalation goes **up by reassignment** (Step 6b), never by
 creating a child assigned to a supervisor. Sub-issues always go **down** to a subordinate
-who executes; the parent stays with the delegating agent until the child is resolved and
-reviewed. This keeps the whole chain — subordinate → supervisor → back down as
-instructions → reviewed and closed — running without orphaned or blocked issues.
+who executes; the parent stays with the delegating agent, `blocked` on its children, until
+Paperclip wakes it and it is reviewed. This keeps the whole chain — subordinate →
+supervisor → back down as instructions → reviewed and closed — running without orphaned
+or dead-end issues.
 
 ## Close
 Before ending: every issue I checked out this run carries a status that names a clear
-next step and a concrete assignee. Nothing is left `blocked`, unassigned, or silently
-`in_progress` without a reason recorded. If there was nothing to do, end cleanly.
+next step and a concrete assignee. Nothing is left unassigned, `in_progress`, or `blocked`
+without a linked child. If there was nothing to do, end cleanly.
 
 ## Maintenance
 This skill is the single source of truth for the Paperclip task lifecycle. If the
