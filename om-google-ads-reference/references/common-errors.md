@@ -21,14 +21,14 @@ In partial-failure requests (`partial_failure = true`), failed operations are re
 | `AuthenticationError.CLIENT_CUSTOMER_ID_INVALID`         | Customer ID format wrong                                                  | Use 10-digit ID with no dashes                                                                |
 | `AuthenticationError.NOT_ADS_USER`                       | The Google account is not linked to any Ads account                       | Check the OAuth account; switch to one with Ads access                                        |
 | `AuthorizationError.USER_PERMISSION_DENIED`              | The authenticated user lacks access to the target customer                | Grant access in Google Ads admin or switch users                                              |
-| `AuthorizationError.DEVELOPER_TOKEN_NOT_APPROVED`        | Dev token still in basic / pending state                                  | Apply for standard access; basic tokens cannot mutate production accounts                      |
+| `AuthorizationError.DEVELOPER_TOKEN_NOT_APPROVED`        | API access is at Test level (test accounts only); Basic and Standard may use production accounts. Since 2026-09 the access level belongs to the Google Cloud project, not the token | Escalate to a human — access levels are managed on the Cloud project's Google Ads API page, not by agents |
 | `HeaderError.LOGIN_CUSTOMER_ID_INVALID`                  | Missing or wrong `login-customer-id` when operating under an MCC          | Set `login-customer-id` to the MCC customer ID                                                |
 
 ## Quota & rate limits
 
 | Error                                                      | Cause                                            | Fix                                                                                      |
 |------------------------------------------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------|
-| `QuotaError.RESOURCE_EXHAUSTED`                            | Hit a per-account or per-developer-token quota   | Back off exponentially and retry; check the quota dashboard                              |
+| `QuotaError.RESOURCE_EXHAUSTED`                            | Hit a per-account or per-project (formerly per-developer-token) quota | Back off exponentially and retry; check the quota dashboard                              |
 | `QuotaError.RESOURCE_TEMPORARILY_EXHAUSTED`                | Transient throttle                               | Retry after a short delay (typically 1–5 s)                                              |
 | `InternalError.TRANSIENT_ERROR`                            | Backend hiccup                                   | Retry with exponential backoff up to 3 attempts                                          |
 
