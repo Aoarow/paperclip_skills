@@ -1,3 +1,5 @@
 .DS_Store
 om-dashboard/SKILL_OLD.md
 .DS_Store
+__pycache__/
+*.pyc
