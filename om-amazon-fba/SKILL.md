@@ -192,6 +192,14 @@ For a product that *does* carry a quantum, the trigger is the **protection inter
 target** — otherwise the agent sends a full quantum every cadence for a product that consumes a
 fraction of one.
 
+⚠️ **The protection interval gates quantum products only.** On a fixed cadence **every** other SKU
+with a need above zero gets a position, however comfortable its reach looks — that is what "fill so it
+lasts until the delivery after next" means, and reach above the protection interval is the normal case
+on a well-supplied account, not a reason to skip. Measured on 2026-09-15: every bottle received a
+position at 25 to 48 days of reach. Measured on 2026-09-29: the same run shipped the one can that fell
+under the interval and dropped seven bottles with 500 units of need, because it applied the interval to
+all of them. **Two different gates: quantum SKUs on the interval, everything else on need > 0.**
+
 ⚠️ **Only `fba_default` makes a quantum product — nothing else does.** A product carries a quantum
 if and only if its `fba_default` is greater than 1. Packaging never makes one: not a can or a tray,
 not `12x0,33l` in the product name, not an `-12fba` suffix, not a pallet-like template name in the
@@ -369,13 +377,23 @@ generate delivery-window options · read the shipment back. Then it prints a rep
 plan. Those endpoints are not on its allowlist; a request for them is refused inside the tool. There
 is no other write path, and an agent never looks for one.
 
+**Packing options are not interchangeable.** Amazon usually offers two: its own recommendation, which
+splits the goods into several packing groups and supports **parcel only** (boxes up to 23 kg), and a
+single-group option that also carries `FREIGHT_LTL` and pallet freight. The recommendation sometimes
+carries a fulfilment-fee discount, which makes it look like the better deal — for a customer shipping
+pallets with their own carrier it is unusable. The tool therefore picks the fee-free option that
+supports the freight form named in `client.md`, preferring one group (one group = one shipment), and
+stops for a human when several fit equally. **Once a packing option is confirmed, the choice is
+sealed** — a plan confirmed on the parcel option must be cancelled and rebuilt, so never click through
+step 2 in Seller Central on a plan the agent built.
+
 **What the agent supplies, and from where:**
 
 | Input | Source |
 | :--- | :--- |
 | positions and units | the agent's own computation |
 | carton dimensions, weight, units per carton, price, `fba_default` | the mirror (`<t>_fba_packing`, `<t>_products_by_asin`) |
-| sender address, warehouse contact, excluded countries, ready-to-ship offset, best-before rule | `client.md` §FBA — never an old plan |
+| sender address, warehouse contact, excluded countries, ready-to-ship offset, best-before rule, freight form | `client.md` §FBA — never an old plan |
 
 **What the agent does not fill in.** A missing carton dimension, a missing `client.md` value, a
 pallet count: the tool refuses or estimates and says so, and the agent escalates. A position is never
