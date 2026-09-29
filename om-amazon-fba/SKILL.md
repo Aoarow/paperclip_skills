@@ -384,8 +384,15 @@ carries a fulfilment-fee discount, which makes it look like the better deal — 
 pallets with their own carrier it is unusable. The tool therefore picks the fee-free option that
 supports the freight form named in `client.md`, preferring one group (one group = one shipment), and
 stops for a human when several fit equally. **Once a packing option is confirmed, the choice is
-sealed** — a plan confirmed on the parcel option must be cancelled and rebuilt, so never click through
-step 2 in Seller Central on a plan the agent built.
+sealed** — a plan confirmed on the parcel option must be cancelled and rebuilt.
+
+⚠️ **Do not open an agent-built plan in Seller Central.** Measured on 2026-09-29: the run stopped
+with both options `OFFERED` at 06:17 UTC; at 07:59 UTC the parcel option stood `ACCEPTED`, and nobody
+had pressed a confirm button — the human had only looked at the plan. Viewing an API-built plan in the
+UI is enough to accept Amazon's recommendation, and that sealed the plan against pallet freight. Two
+consequences: **check a draft through the API, not in the UI**, and the tool **confirms its chosen
+option inside the same run and reads back which option is accepted** — a plan left with two open
+options is a plan Amazon may decide for you.
 
 **What the agent supplies, and from where:**
 
