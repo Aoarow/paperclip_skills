@@ -23,10 +23,14 @@ The starting level for a new or unproven property. No live changes.
 - Allowed: analyze performance, document findings, propose changes as tasks to the
   department head.
 - Everything that would mutate the account escalates.
-- A human change order does not lift this. When a human orders a change on an Observe
-  property, the department head carries it out, or the human does. It is never delegated
-  to the property's own agents. The order authorizes the change, not the agent's level.
-  Otherwise an Observe agent learns from its own decision log that it writes to the account.
+- A human change order does not lift this. The order authorizes the change, not the agent's
+  level, and it is never delegated to the property's own agents. Otherwise an Observe agent
+  learns from its own decision log that it writes to the account.
+- **Who executes it instead: a human, or an operator the human names for that change.** Not
+  the department head and not the CEO agent — *The return path* below holds here too, without
+  exception: nobody above the property tier writes to an ad account. The department head's
+  part is to enumerate the change — campaign, IDs, before/after values — and open the
+  confirmation request to the human. That is a complete run, not a failed one.
 
 ### Standard
 The everyday level once a property runs reliably.
@@ -115,6 +119,12 @@ happens.
   not the Account Manager for bids, not the department head, not the CEO agent. A tier that
   cannot hold the property's context (`strategy.md`, `learnings.md`, its own `decision-log.md`)
   must not write to it: an undocumented change reads as drift on the next daily run.
+  This also settles the **Observe** case above. When the property's own agents may not write
+  and no agent above them may either, the executor is the human or an operator the human
+  names. Enumerate the change, hand it over, stop — do not look for an agent who still
+  could. A department head that writes to the account to get a human's order done has broken
+  this rule, however well-intentioned: it holds none of the property's context and its change
+  is the drift the next run reports.
 - **Route down before routing sideways or up.** Before handing an execution request to a peer or
   upward, look up the agent that holds the tool in
   `om-amazon-ads-reference/references/mcp-write-tools.md` and hand the issue to that agent. An
