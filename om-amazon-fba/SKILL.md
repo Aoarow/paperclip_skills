@@ -301,11 +301,17 @@ mirror carries that limit today. Until one does, the agent **states the assumpti
 
 ## Packing — two sources, in this order
 
-1. **Carton history** (`<t>_fba_packing`) — measured, from shipments actually made. Preferred.
-2. **`units_per_carton`** from the product catalogue — for anything without history.
+1. **Carton history** (`<t>_fba_packing`) — measured, from shipments actually made. Preferred for
+   units per carton **and** for outer dimensions and gross weight.
+2. **Product data** (`<t>_products_by_asin`) — `units_per_carton`, and since 2026-10-13 also
+   `length_cm`, `width_cm`, `height_cm`, `weight_kg`, maintained by a human in the product sheet from
+   the manufacturer's article sheet.
 
-There is no third source. If neither carries a value for a SKU that needs shipping, that is a
-finding to report, not a gap to fill with a guess.
+**The order is not interchangeable:** measured beats maintained, because the history records the
+carton that actually travelled. The sheet carries the first shipment of a new product, which has no
+history yet — before that column existed, every new SKU stopped a cadence day (measured 2026-09-29
+and 2026-10-13). There is no third source. If neither carries a value for a SKU that needs shipping,
+that is a finding to report, not a gap to fill with a guess.
 
 `varianten_physisch > 1` is a finding worth reporting. `varianten_vorlagenname > 1` is **not** — the
 template name is human-assigned and often just describes the pallet build of that one shipment. The
