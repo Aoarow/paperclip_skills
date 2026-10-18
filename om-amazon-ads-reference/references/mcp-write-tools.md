@@ -54,18 +54,18 @@ runtime cannot disagree. Regenerate with `~/.amazon-ads-mcp/tool-map.py`; the da
 
 | Tool | In toolset | Agents |
 | :--- | :--- | ---: |
-| `campaign_management-update_target_bid` | `operate_bid` | 6 |
+| `campaign_management-update_target_bid` | `operate_bid` | 9 |
 | `campaign_management-update_campaign_budget` | **none** | **nobody** |
 | `campaign_management-update_target` | **none** | **nobody** |
 | `campaign_management-update_campaign_state` | **none** | **nobody** |
-| `campaign_management-update_campaign` | `operate`, `operate_bid` | 20 |
-| `campaign_management-delete_target` | `operate`, `operate_bid` | 20 |
+| `campaign_management-update_campaign` | `operate`, `operate_bid` | 24 |
+| `campaign_management-delete_target` | `operate`, `operate_bid` | 24 |
 
 Which agent holds which toolset:
 
-- **`operate`** (13 tools) — `BIM-amz Account Manager`, `BIM-donpasquale NegTar`, `BIM-donpasquale PosTar`, `BIM-evermann NegTar`, `BIM-evermann PosTar`, `BIM-loerch NegTar`, `BIM-loerch PosTar`, `BIM-needle NegTar`, `BIM-needle PosTar`, `BIM-woodstork NegTar`, `BIM-woodstork PosTar`, `WIN-amz Account Manager`, `WIN-amz NegTar`, `WIN-amz PosTar`
-- **`operate_bid`** (14 tools) — `BIM-donpasquale Optimizer`, `BIM-evermann Optimizer`, `BIM-loerch Optimizer`, `BIM-needle Optimizer`, `BIM-woodstork Optimizer`, `WIN-amz Optimizer`
-- **`read`** (5 tools) — `BIM-donpasquale Reviewer`, `BIM-evermann Reviewer`, `BIM-loerch Reviewer`, `BIM-needle Reviewer`, `BIM-woodstork Reviewer`, `WIN-amz Reviewer`
+- **`operate`** (13 tools) — `BIM-amz Account Manager`, `BIM-donpasquale NegTar`, `BIM-donpasquale PosTar`, `BIM-evermann NegTar`, `BIM-evermann PosTar`, `BIM-loerch NegTar`, `BIM-loerch PosTar`, `BIM-needle NegTar`, `BIM-needle PosTar`, `BIM-woodstork NegTar`, `BIM-woodstork PosTar`, `HOM-amz Account Manager`, `WIN-amz Account Manager`, `WIN-amz NegTar`, `WIN-amz PosTar`
+- **`operate_bid`** (14 tools) — `BIM-donpasquale Optimizer`, `BIM-evermann Optimizer`, `BIM-loerch Optimizer`, `BIM-needle Optimizer`, `BIM-woodstork Optimizer`, `HOM-draussen Optimizer`, `HOM-drinnen Optimizer`, `HOM-steinteppich Optimizer`, `WIN-amz Optimizer`
+- **`read`** (5 tools) — `BIM-donpasquale Reviewer`, `BIM-evermann Reviewer`, `BIM-loerch Reviewer`, `BIM-needle Reviewer`, `BIM-woodstork Reviewer`, `HOM-draussen NegTar`, `HOM-draussen PosTar`, `HOM-draussen Reviewer`, `HOM-drinnen NegTar`, `HOM-drinnen PosTar`, `HOM-drinnen Reviewer`, `HOM-steinteppich NegTar`, `HOM-steinteppich PosTar`, `HOM-steinteppich Reviewer`, `WIN-amz Reviewer`
 
 <!-- TOOL-MAP:END -->
 
