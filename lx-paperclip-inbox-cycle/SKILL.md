@@ -212,8 +212,22 @@ read field).
 run_shell_command({ command: "curl -s -X PATCH -H \"Authorization: Bearer $PAPERCLIP_API_KEY\" -H 'Content-Type: application/json' -H \"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\" -d '{\"status\": \"cancelled\"}' \"$PAPERCLIP_API_URL/api/issues/{issueId}\"" })
 ```
 
-The remaining statuses (`backlog`, `in_review`) are not part of the standard agent
-close-out; use them only if a specific workflow introduces them. `blocked` is an agent
+**e) Waiting on a human decision — `in_review`.** When the run ends because a human has to
+decide — a **board approval** (`request_board_approval`) or a confirmation / question card in
+the thread — the issue stays `in_review` until that decision is made. A human scanning the
+issue must see at once *what* it waits for and *where* to decide. A board approval is **not**
+shown in the issue thread; it lives under Approvals, so a bare approval ID leaves the human
+guessing why the issue is stuck (LEXA-1310, 2026-10).
+
+- When creating the approval, pass `"issueIds": ["{issueId}"]`, so it is linked to the issue.
+- The 6.1 comment of this run **starts** with one line in this shape, before any detail:
+  `**Waiting for your decision:** [<approval title>](/LEXA/approvals/<approvalId>) — Approvals, not this thread. Approve: <what happens next>. Reject: <what happens next>.`
+- Always a markdown link, never the bare ID. For a card in the thread, link nothing and write
+  `**Waiting for your decision:** the confirmation card below — <what approve / reject trigger>.`
+- One issue, one open decision. If a second decision is needed, it gets its own issue.
+
+The remaining status `backlog` is not part of the standard agent close-out; use it only if a
+specific workflow introduces it. `in_review` is an agent close-out **only** as in 6e. `blocked` is an agent
 close-out **only** as the linked parent in 6c (rule 1).
 
 ### 7. Create an issue (delegate down, or a scheduled agent's own run)
