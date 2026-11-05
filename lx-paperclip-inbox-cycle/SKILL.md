@@ -225,6 +225,7 @@ guessing why the issue is stuck (LEXA-1310, 2026-10).
 - Always a markdown link, never the bare ID. For a card in the thread, link nothing and write
   `**Waiting for your decision:** the confirmation card below — <what approve / reject trigger>.`
 - One issue, one open decision. If a second decision is needed, it gets its own issue.
+- **A step only a human or Claude Code can perform is not escalated.** Example: building Amazon campaigns — since 2026-08-23 done by a human via Claude Code, never by an agent. If such an issue reaches you, post one comment starting `**Handed to Claude Code:**` with what is to be done, leave the issue `in_review` and stop. Passing it up the chain does not make it executable; it only produces a card the human cannot answer (LEXA-1311).
 
 The remaining status `backlog` is not part of the standard agent close-out; use it only if a
 specific workflow introduces it. `in_review` is an agent close-out **only** as in 6e. `blocked` is an agent
