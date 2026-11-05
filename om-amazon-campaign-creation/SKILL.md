@@ -1,13 +1,13 @@
 ---
 name: om-amazon-campaign-creation
-description: Create Amazon Sponsored Products campaigns, ad groups, product ads, keywords, and targets end-to-end via the Amazon Ads API. Builds the Lexacore campaign structure (1 campaign = 1 ad group = 1 ASIN; at least the four strategies Own Brand / Competitor / Generic / Auto per ASIN), applies the binding naming convention, wires up the negation web at creation time, and respects Ads API bulk/rate limits. Use whenever an agent is asked to build, launch, set up, or assemble Amazon advertising structures — even loosely phrased ("get Sponsored Products live for this ASIN", "spin up campaigns for the new product"). Since 2026-08-23 the build itself is executed by a human via Claude Code, never by a Paperclip agent; agents use this skill to specify a build request precisely and to verify a finished build. All new campaigns are created PAUSED and handed to a human for activation; never enable a campaign autonomously.
+description: Create Amazon Sponsored Products campaigns, ad groups, product ads, keywords, and targets end-to-end via the Amazon Ads API. Builds the Lexacore campaign structure (1 campaign = 1 ad group = 1 ASIN; at least the four strategies Own Brand / Competitor / Generic / Auto per ASIN), applies the binding naming convention, wires up the negation web at creation time, and respects Ads API bulk/rate limits. Use whenever an agent is asked to build, launch, set up, or assemble Amazon advertising structures — even loosely phrased ("get Sponsored Products live for this ASIN", "spin up campaigns for the new product"). Executed by the client's Account-Manager (campaign creation is account-level, not a property-agent task), on build requests from the property Optimizer and Targeters. All new campaigns are created PAUSED and handed to a human for activation; never enable a campaign autonomously.
 ---
 
 # Amazon Advertising — Campaign Creation
 
 This skill assembles complete, ready-to-launch **Sponsored Products** campaigns through the Amazon Ads API, following the Lexacore manifest. The end state is always the same: a set of campaigns for an ASIN sitting in `PAUSED`, the negation web in place, waiting for a human to enable them.
 
-**Who runs this:** since 2026-08-23 **a human via Claude Code** (local skill `amazon-werbekampagnen`, which carries the build scripts and client-specific structures such as the HOM colour-family ad groups). **No Paperclip agent executes a build** — not the Account-Manager, not Peggy, not Roger: the agent runtime has neither the build scripts nor those mappings, and agent builds were costly and incomplete (`B06ZY1QH1Y`, 2026-08-23). Agents use this skill as the specification: the Account-Manager to word a build request that can be built without further questions, every agent to check a finished build against it. How a build request is routed and closed: `om-amazon-account-management` duty 3.
+**Who runs this:** the client's **KI-Account-Manager** — it builds, itself, with its `operate` toolset (decision Alexander, 2026-11-05). Not the property agents, and **not Peggy or Roger**: a build is never passed up the chain to be executed (*Nobody above the property tier writes to an ad account*, `om-autonomy-levels`). *(History: from 2026-08-23 to 2026-11-05 builds ran in Claude Code instead; LEXA-1311 showed the cost — an approved build travelled AM → Peggy → Roger and could not be closed. Claude Code remains the fallback for a technical blocker, nothing more.)*
 
 **Doctrine is not restated here.** The *why* and the *rules* (strategy split, R/P pairing, naming, negation, head-term ownership) live in `om-amazon-advertising-manifest`; the *API contract* (objects, fields, limits, errors) lives in `om-amazon-ads-reference`. This skill is the *procedure* that obeys them. Read both before building.
 
@@ -30,6 +30,22 @@ If a request asks for any of the above, stop and hand back with a clear note tha
 
 ---
 
+## Where builds come from, who releases them, when you escalate
+
+**Inputs.** A build request comes from a property agent: the positive Targeter (a graduation destination that does not exist yet, a WTB proposal), the Optimizer (a structural gap), or a human. A good request already names ASIN, class → strategy, campaign name, the terms/targets with evidence and the source bid. You check it against this skill and `strategy.md`; you do not send it back for wording you can fix yourself.
+
+**Release = the human's activation.** You build **without asking first**: every campaign is created `PAUSED`, a paused campaign costs nothing, and the human reviews and enables it in the console. That activation *is* the budget release. There is no separate approval card before a build, and no `strategy.md` §7 entry is required for it — your `decision-log.md` entry is the record (see *After the build*). A `strategy.md` that still says "no build without a §7 entry" is outdated on this point; follow this skill and flag the line to Peggy.
+
+**Escalate only for a reason, and say which one:**
+- **Technical** — a tool error you cannot resolve with `common-errors.md`, a schema the payloads here no longer match, missing data the build cannot do without (no SKU in the catalog, no portfolio for the property).
+- **Autonomy / guardrail** — anything on the always-escalate list in `om-autonomy-levels` (changing the head-term ownership map, raising a monthly budget, enabling), or a budget the house rule below does not cover.
+- **Sense** — you judge the build wrong: the evidence is too thin, it contradicts `strategy.md`, it would cannibalise a sibling, the product should not be advertised (e.g. a known offer problem).
+- **Amazon side** — the product is ineligible, the listing or account blocks it.
+
+Everything else you build. An escalation names the reason class, what you checked, and what you propose; it never asks a human to supply "inputs" you could read yourself. Where a part of a request is blocked (e.g. one term has open ownership), **build the rest** and escalate only the blocked part.
+
+---
+
 ## Inputs — read before building
 | Source | Read for | Rights |
 | :--- | :--- | :--- |
@@ -48,10 +64,12 @@ Run before issuing a single create. Skipping these is the most common source of 
 
 1. **Profile & account resolved** — the `profileId`, account, and marketplace from the Amazon account block in `client.md` (the property maps to one account); the `CLIENT` code (manifest §6) is known.
 2. **ASIN + SKUs confirmed advertisable — ask the Ads API, not the catalog.** The ASIN exists in the product catalog (Supabase) with `status = active`; then verify **each SKU you will advertise** (manifest §1: the FBM SKU + its FBA twin) **live against the Ads API** — the per-SKU eligibility / delivery status is the authoritative signal. **Do not gate on `stock_status` from the catalog:** stock is a live, per-SKU property, the Sheet deliberately does not carry it (decision 2026-07-17), so the column is always empty — gating on it would be a check against nothing. A SKU returning **`NOT_BUYABLE`** (e.g. zero stock on that fulfilment) is **not a reason to skip the build**: build per doctrine, but **name the affected SKU explicitly in the handover** so the human knows that half will not serve until the offer is fixed. *(Precedent: B0F9Y3ZSQ7 — a zero-stock FBM offer silently killed an entire ASIN-level build for 12 days; per-SKU ads surfaced it immediately.)* *(New ASIN not yet synced from the Sheet? trigger the sync first, or read the Sheet for that one product.)*
-3. **Budget decided** — per-product/campaign daily budget present in `budget.csv` (human-owned). At €0, stop and escalate (budget is sacred).
+3. **Budget known** — the property's monthly figure in `budget.csv` (human-owned) is above €0 (at €0, stop and escalate — budget is sacred). The **daily** budget of each new campaign you set yourself per *Starting budget* below; the human's activation releases it.
 4. **Strategy known** — `strategy.md` says whether this ASIN is a focus/hero or side product (drives baseline vs. expanded build) and carries the **head-term ownership map**.
 5. **Head-term ownership checked** — for this ASIN's brand: which head terms does this ASIN own, and which does it *not* own (→ those become negatives here). See manifest §5.
 6. **No duplicates** — pre-read the catalog (`om-amazon-ads-reference`): does a campaign with the intended name already exist? The Ads API has no natural dedup — re-creating makes duplicates.
+7. **Portfolio known** — the property's portfolio ID, read from an existing campaign of the same property (`portfolioId` in `query_campaign`). New campaigns go into it. Never create a portfolio (no MCP tool exists, and a new one comes back with unspent-budget sharing switched on — a human decision).
+8. **Client-specific structure** — if `strategy.md` declares a deviation from 1 campaign = 1 ad group = 1 ASIN (e.g. Home Profis: campaign = parent article × strategy, ad groups = colour families by RAL code), **`strategy.md` wins** over the generic pattern here. Read the mapping rule there; do not look for a separate script or spreadsheet.
 
 If any check fails, stop and surface the gap — do not invent a workaround.
 
@@ -65,7 +83,7 @@ For one ASIN you build a **set** of campaigns (baseline = one per strategy). Eac
 1. Campaign        (state = PAUSED; MANUAL vs AUTO via autoCreationSettings — see below;
                     daily budget >= 1.00 EUR; dynamic bidding; startDateTime required;
                     `autoCreationSettings` is MANDATORY in both cases; `costType` is REJECTED)
-2. Ad Group        (one; defaultBid; NO name — see naming convention)
+2. Ad Group        (one; defaultBid; name "Anzeigengruppe 1" — see ad group naming)
 3. Product Ads     (one per SKU that actually exists, created by SKU / productIdType=SKU,
                     never the ASIN — manifest §1. Read the FBA sibling from the `fba_sku`
                     column; NEVER derive it from the FBM SKU. Empty `fba_sku` = no FBA
@@ -83,6 +101,14 @@ Read the product's `priority` (1/2/3) from the catalog (Supabase) and build acco
 - **Prio 3 (fringe): minimal** — only the essentials (e.g. AUT for discovery + a single GEN/MRK), no Exact-Profit harvest.
 
 Head-term ownership is **separate** from priority — whether this ASIN bids its class's head term comes from the head-term map in `strategy.md` (§5/manifest §5), not from its Prio. (Priority is the source of build depth; the ruleset lives in manifest §8, the per-product value in the Sheet→Supabase catalog.)
+
+### Exact-Profit destinations for a graduation (the most common build)
+When the positive Targeter graduates a winner that has no Exact-Profit campaign yet:
+- **One campaign per ASIN × strategy**, name `…-<STRATEGY>-Exact-P-…`, one ad group (`allgemein` for GEN, `marke` for MRK where the property names its groups; otherwise `Anzeigengruppe 1`), the graduated terms as **EXACT** keywords, each with an explicit bid = the source bid from the request. Up to 15 terms (roster cap, `om-amazon-positive-targeting`).
+- **Product ads = exactly the ENABLED SKUs of the source ad group** where the term earned its orders (read with paginated `query_ad`). That set is already the right one — siblings, colours, FBM/FBA twin — so no catalog mapping is needed. SKUs Amazon now rejects as `PRODUCT_INELIGIBLE` are skipped and named in the handover.
+- **No negatives** on an EXACT-only ad group — it cannot match anything else. The isolation work happens in Phase B, in the *other* campaigns.
+- Daily budget per *Starting budget* below; default for a single-ASIN Exact-P campaign is the low end of the house range unless the term's evidence or `strategy.md` says otherwise.
+*(Reference build: HOM Drinnen, LEXA-1311, 2026-11-05 — three Exact-P campaigns, 761/10/7 ads copied from their source groups.)*
 
 ---
 
@@ -150,10 +176,13 @@ Head-term ownership is **separate** from priority — whether this ASIN bids its
 
 ---
 
-## Ad group naming — leave it to Amazon
+## Ad group naming — Amazon's default name
 
-**Do not name the ad group.** Omit `name` in `create_ad_group` and let Amazon assign its own
-default (`Anzeigengruppe 1` on a German marketplace, `Ad group 1` on an English one).
+**Send `name: "Anzeigengruppe 1"`** (`Ad group 1` on an English marketplace) — Amazon's own
+default. Since 2026-09 the MCP schema requires `name`; omitting it fails the call
+(`required property 'name' not found`) after the campaign already exists. **Exception:** a
+property whose `strategy.md` defines named ad groups (Home Profis colour families) uses those
+names.
 
 The naming convention below governs **campaign** names only. Because the structure is
 1 campaign = 1 ad group = 1 ASIN, an ad group name carries no information the campaign name does
@@ -189,9 +218,11 @@ to an even split of the monthly cap. The monthly cap is enforced somewhere else 
 `FIELD_VALUE_IS_BELOW_MINIMUM_LIMIT` — including campaigns created `PAUSED`. If a strategy
 allocates below that, it is not buildable as written.
 
-**Never silently substitute a different budget in either direction.** Both a higher and a lower
-figure than the authorization says are budget decisions, not build details. Escalate for a
-revised allocation.
+**Where the figure comes from, in this order:** a daily budget `strategy.md` names for this
+campaign or class → the house range above, scaled to the role (discovery campaigns get equal,
+sufficient capital; MRK and single-term Exact-P stay lean). Name the figure and its source in
+the handover — the human's activation releases it. A figure outside the house range needs an
+escalation (*Autonomy / guardrail*), not a build.
 
 ### The monthly cap does not live on the campaigns
 
@@ -210,8 +241,7 @@ humans, and it varies. **Do not read it, do not reason about it, and do not trea
 a defect.** Where it exists it is a silent net, not an input.
 
 **What agents must say plainly in a handover:** they cannot enforce a budget themselves.
-`update_campaign_budget` is excluded from every toolset, pausing a campaign is escalate-only, and
-the optimizer runs once a day — so a campaign can overspend for a full day before anyone looks.
+Pausing a campaign is escalate-only, and the optimizer runs once a day — so a campaign can overspend for a full day before anyone looks.
 State that limitation rather than assuming someone else's safety net will catch it.
 
 *(Learned 2026-08-04, Wood Stork: an approved 0,50 EUR/day campaign could not be created at all
@@ -234,7 +264,9 @@ After seeding the positives above, install the negatives **in the same build**, 
 - For each head term this ASIN does **not** own: add it as **negative exact** on this ASIN's **GEN and AUT** campaigns.
 - If this ASIN **owns** a head term: the head term is positive in its owning campaign; the negative goes on the *sibling* ASINs (handled when those are built, or reconciled by the positive Targeter). Consult the ownership map in `strategy.md` — never flip ownership here.
 
-**Match type:** always **negative exact** for clean isolation (negative phrase blocks too broadly).
+**Waste negatives (third layer):** the property's standard waste terms — read them off an established campaign of the same property (the account is the truth) or `strategy.md`. On MRK keep the list narrow (brand intent beats a qualifier like "set").
+
+**Match type is two-tier:** isolation and head-term negatives **EXACT** (they cut out exactly one term; phrase would take whole families with it) · waste negatives **PHRASE** (they must catch inflections and compounds: `billig` also blocks "billiger gin"). Singular and plural are two terms.
 
 > Building a full brand at once: seed all ASINs' positives first, then resolve the cross-ASIN head-term negatives, so the map is applied consistently. For a single ASIN added to an existing brand, read the existing siblings' positives/ownership from the catalog before negating.
 
@@ -286,6 +318,15 @@ Only after this verification pass send the handover. On any unrecognized error o
 
 ---
 
+## After the build — record, hand over, finish
+
+1. **`decision-log.md` of the property, same run.** Campaign IDs, names, budgets and bids with their source, ad counts, the negation web, rejected SKUs, read-back result. Without it the property agents read the new campaigns as drift the next morning.
+2. **Handover on the issue** (the list in *The PAUSED handover*), opening with `**Waiting for your decision:** enable campaigns <IDs> in the Amazon console — only these IDs, not "all paused"` and a `request_confirmation` whose question is **"enabled?"**, not "created?" (`continuationPolicy=wake_assignee`). Leave the issue `in_review` (inbox cycle 6e).
+3. **Phase B after activation** — when the card is accepted, read the campaigns back: only `state = ENABLED` counts. Then complete the graduation: negative-exact of each graduated term in its source campaign, plus the on-add invariant (a new MRK/WTB term negated in GEN and AUT, a new GEN term in AUT) and, for a newly owned head term, the ownership negatives on the sibling GEN/AUT campaigns. If the owning property Targeter has write tools, route this to it (`om-autonomy-levels`, *route down*); if it is read-only (Home Profis), you execute it. Read back, log, close the issue `done`.
+A declined build or a campaign the human leaves paused is not re-proposed without new evidence.
+
+---
+
 ## Common pitfalls
 - **Creating campaigns `ENABLED`.** Violates the handover rail. Always `PAUSED`.
 - **Skipping the negation web at creation.** Then terms serve in multiple strategies and attribution is dirty from day one — back-filling later is painful.
@@ -296,6 +337,7 @@ Only after this verification pass send the handover. On any unrecognized error o
 - **Duplicates from a re-run.** No natural idempotency — pre-read by name first.
 - **Firing all creates at once.** Trips the rate limiter; chunk and serialize, honour `429` + `Retry-After`.
 - **Inventing bid numbers.** Bids/posture are policy inputs — read them, record them, don't bake guesses into the skill.
+- **Escalating instead of building.** Missing a script or a spreadsheet is not a blocker: the API, the catalog view, the source ad groups and `strategy.md` hold everything a build needs. Escalate only with one of the four reasons above.
 
 ---
 

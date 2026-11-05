@@ -114,7 +114,7 @@ Each search term should be active in exactly one strategy ("clean attribution").
 **Maintenance (a continuous invariant — owned by the positive Targeter agent):**
 - **On add:** a new positive in MRK/WTB is immediately added as a negative in GEN **and** AUT; a new positive in GEN is added as a negative in AUT.
 - **On remove:** when a positive is removed, its corresponding negatives elsewhere must also be removed — otherwise an orphaned negative blocks the term permanently and prevents it from flowing back into discovery/GEN.
-- **Negative match type:** use **negative exact** for clean isolation of a specific term; negative phrase blocks too broadly.
+- **Negative match type — two tiers:** isolation and head-term negatives are **negative exact** (cut out exactly one term; phrase would block whole families). Waste negatives are **negative phrase** (they must catch inflections and compounds — `billig` also blocks "billiger gin"; singular and plural are separate terms). *(Corrected 2026-11-05: this line said "always exact", which let half of the waste through.)*
 
 ---
 

@@ -22,7 +22,7 @@ Tools are self-describing: read each tool's MCP **input schema** (its declared p
 | **Head-term ownership** cross-ASIN negation §5 — `om-amazon-positive-targeting` | `campaign_management-create_target` (negative-exact on sibling ASINs) | `campaign_management-query_target` |
 | **Waste negative** (term/ASIN) — `om-amazon-negative-targeting` | `campaign_management-create_target` (negative-exact keyword / negative product target) | `campaign_management-query_target` |
 | **Remove a negative / a stray target** (incl. the on-remove invariant; match-type change = delete + re-create) — `om-amazon-negative-targeting` | `campaign_management-delete_target` (the **only** enabled delete tool) | `campaign_management-query_target` |
-| **Create a campaign** (PAUSED) — `om-amazon-account-management` | `campaign_management-create_singleshot_sp_campaign` (one-shot) **or** `create_campaign` + `create_ad_group` + `create_ad` + `create_target` | `campaign_management-query_campaign` |
+| **Create a campaign** (PAUSED) — Account-Manager, `om-amazon-campaign-creation` | `create_campaign` + `create_ad_group` + `create_ad` + `create_target` — **not** `create_singleshot_sp_campaign` (no `state` field, cannot be created PAUSED) | `campaign_management-query_campaign` |
 | **Read for verify only** (the data read of record is Supabase) | `query_campaign` / `query_ad_group` / `query_target` / `query_ad`; `account_management-query_advertiser_account`; `reporting-*` | — |
 
 ## Which levers are actually callable (this differs per agent)
